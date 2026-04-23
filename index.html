@@ -2184,16 +2184,14 @@ async function confirmZipImport(){
       const{vids,err}=parseTikTokContentCsv(text,meta.year);
       if(err&&!vids.length){errEl.textContent='✕ '+name+': '+err;return;}
       if(vids.length>0){
-        const newVids=vids.map(v=>({
-          id:videoId(ipId,platId,month,v.title),
-          ipId,platform:platId,month,
-          title:v.title,views:v.views,
-          likes:v.likes,comments:v.comments,shares:v.shares,reposts:null,
-          publishDate:v.publishDate||null,
-        }));
+        const newVids=vids.map(v=>{
+          const m=v.publishDate?v.publishDate.slice(0,7):month;
+          return{id:videoId(ipId,platId,m,v.title),ipId,platform:platId,month:m,
+            title:v.title,views:v.views,likes:v.likes,comments:v.comments,
+            shares:v.shares,reposts:null,publishDate:v.publishDate||null};
+        });
         await upsertVideos(newVids);
         totalVids+=newVids.length;
-        // Also store total views as daily metric (use month-01 as proxy)
         const totalV=vids.reduce((s,v)=>s+v.views,0);
         if(totalV>0){
           try{await commitRows([{ip,plat,date:month+'-01',views:totalV}]);totalMetrics+=1;}catch(e){}
@@ -2201,35 +2199,43 @@ async function confirmZipImport(){
       }
     }
     else if(detectedType==='meta_insights'){
-      // Meta Business Suite IG/FB CSV
       const{vids,err}=parseMetaInsightsCsv(text);
       if(err&&!vids.length){errEl.textContent='✕ '+name+': '+err;return;}
       if(vids.length>0){
-        const newVids=vids.map(v=>({
-          id:videoId(ipId,platId,month,v.title),
-          ipId,platform:platId,month,
-          title:v.title,views:v.views,
-          likes:v.likes,comments:v.comments,shares:v.shares,reposts:null,
-          publishDate:v.publishDate||null,
-        }));
+        const newVids=vids.map(v=>{
+          const m=v.publishDate?v.publishDate.slice(0,7):month;
+          return{id:videoId(ipId,platId,m,v.title),ipId,platform:platId,month:m,
+            title:v.title,views:v.views,likes:v.likes,comments:v.comments,
+            shares:v.shares,reposts:null,publishDate:v.publishDate||null};
+        });
         await upsertVideos(newVids);
         totalVids+=newVids.length;
+        const monthMap=new Map();
+        newVids.forEach(v=>{monthMap.set(v.month,(monthMap.get(v.month)||0)+v.views);});
+        for(const[m,views] of monthMap){
+          if(views>0)try{await commitRows([{ip,plat,date:m+'-01',views}]);totalMetrics++;}catch(e){}
+        }
       }
     }
     else if(detectedType==='meta_reels'){
-      // Meta Business Suite IG/FB Reels CSV (貼文編號,帳號編號,...,說明,...,瀏覽次數,...)
+      // Meta Business Suite IG/FB Reels CSV — 每支影片用發布月份
       const{vids,err}=parseMetaReelsCsv(text);
       if(err&&!vids.length){errEl.textContent='✕ '+name+': '+err;return;}
       if(vids.length>0){
-        const newVids=vids.map(v=>({
-          id:videoId(ipId,platId,month,v.title),
-          ipId,platform:platId,month,
-          title:v.title,views:v.views,
-          likes:v.likes,comments:v.comments,shares:v.shares,reposts:v.reposts,
-          publishDate:v.publishDate||null,
-        }));
+        const newVids=vids.map(v=>{
+          const m=v.publishDate?v.publishDate.slice(0,7):month;
+          return{id:videoId(ipId,platId,m,v.title),ipId,platform:platId,month:m,
+            title:v.title,views:v.views,likes:v.likes,comments:v.comments,
+            shares:v.shares,reposts:v.reposts,publishDate:v.publishDate||null};
+        });
         await upsertVideos(newVids);
         totalVids+=newVids.length;
+        // 按月份加總，存入 metrics（YYYY-MM-01 代表該月）
+        const monthMap=new Map();
+        newVids.forEach(v=>{monthMap.set(v.month,(monthMap.get(v.month)||0)+v.views);});
+        for(const[m,views] of monthMap){
+          if(views>0)try{await commitRows([{ip,plat,date:m+'-01',views}]);totalMetrics++;}catch(e){}
+        }
       }
     }
     else if(detectedType==='tiktok_overview'){
@@ -2287,11 +2293,11 @@ async function confirmZipImport(){
         });
 
         if(vids.length>0){
-          const newVids=vids.map(v=>({
-            id:videoId(ipId,platId,month,v.title),
-            ipId,platform:platId,month,
-            title:v.title,views:v.views,publishDate:v.publishDate||null,
-          }));
+          const newVids=vids.map(v=>{
+            const m=v.publishDate?v.publishDate.slice(0,7):month;
+            return{id:videoId(ipId,platId,m,v.title),ipId,platform:platId,month:m,
+              title:v.title,views:v.views,publishDate:v.publishDate||null};
+          });
           await upsertVideos(newVids);
           totalVids+=newVids.length;
         }
@@ -2433,25 +2439,31 @@ function showMetaReelsModal(text){
 async function confirmMetaReelsImport(){
   const ipId=document.getElementById('mr-ip').value;
   const platId=document.getElementById('mr-plat').value;
-  const month=document.getElementById('mr-month').value;
+  const fallbackMonth=document.getElementById('mr-month').value;
   const errEl=document.getElementById('mr-err');
   if(!ipId){errEl.textContent='⚠ 請選擇 IP';return;}
-  if(!month){errEl.textContent='⚠ 請選擇月份';return;}
   const{vids,err}=parseMetaReelsCsv(_metaReelsText);
   if(err&&!vids.length){errEl.textContent='✕ '+err;return;}
-  const newVids=vids.map(v=>({
-    id:videoId(ipId,platId,month,v.title),
-    ipId,platform:platId,month,
-    title:v.title,views:v.views,
-    likes:v.likes,comments:v.comments,shares:v.shares,reposts:v.reposts,
-    publishDate:v.publishDate||null,
-  }));
+  const newVids=vids.map(v=>{
+    const m=v.publishDate?v.publishDate.slice(0,7):(fallbackMonth||new Date().toISOString().slice(0,7));
+    return{id:videoId(ipId,platId,m,v.title),ipId,platform:platId,month:m,
+      title:v.title,views:v.views,likes:v.likes,comments:v.comments,
+      shares:v.shares,reposts:v.reposts,publishDate:v.publishDate||null};
+  });
   await upsertVideos(newVids);
+  // 按月份加總存入 metrics
+  const monthMap=new Map();
+  newVids.forEach(v=>{monthMap.set(v.month,(monthMap.get(v.month)||0)+v.views);});
+  for(const[m,views] of monthMap){
+    if(views>0)try{await commitRows([{ip:S.ips.find(x=>x.id===ipId),plat:PLATFORMS.find(p=>p.id===platId),date:m+'-01',views}]);}catch(e){}
+  }
   _metaReelsText=null;
   document.getElementById('meta-reels-modal').remove();
   document.getElementById('csv-input').value='';
   renderVideoRankings();
-  toast(`✓ 匯入完成：${newVids.length} 支 IG/FB 影片`);
+  // Group by month for summary
+  const byMonth=[...new Set(newVids.map(v=>v.month))].sort();
+  toast(`✓ 匯入完成：${newVids.length} 支影片（${byMonth.join('、')}）`);
 }
 
 function showMetaImportModal(text){
