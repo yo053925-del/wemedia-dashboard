@@ -3063,17 +3063,36 @@ function renderVidEditBtn(){
 const GOAL_TARGET=1500000; // 150萬
 const CYCLE_SIZE=24; // 每累積 24 支影片為一個週期
 
-// 取得某 IP 的所有影片，依發布日期或月份排序，計算週期
-function getIPCycles(ipId){
-  const allVids=loadVideos().filter(v=>v.ipId===ipId);
+// 取得某 IP 某平台的影片週期（每24支一期）
+function getPlatformCycles(ipId, platformId){
+  const allVids=loadVideos().filter(v=>v.ipId===ipId&&v.platform===platformId);
   if(!allVids.length)return[];
-  // Sort by publishDate or month
   allVids.sort((a,b)=>{
     const da=a.publishDate||a.month+'-01';
     const db=b.publishDate||b.month+'-01';
     return da.localeCompare(db);
   });
-  // Group into cycles of 24
+  const cycles=[];
+  for(let i=0;i<allVids.length;i+=CYCLE_SIZE){
+    const chunk=allVids.slice(i,i+CYCLE_SIZE);
+    const cycleNum=Math.floor(i/CYCLE_SIZE)+1;
+    const firstDate=chunk[0].publishDate||chunk[0].month+'-01';
+    const lastDate=chunk[chunk.length-1].publishDate||chunk[chunk.length-1].month+'-01';
+    const totalViews=chunk.reduce((s,v)=>s+v.views,0);
+    cycles.push({cycleNum,vids:chunk,firstDate,lastDate,totalViews,isComplete:chunk.length===CYCLE_SIZE});
+  }
+  return cycles;
+}
+
+// 保留舊函式供 IP 分析頁使用（所有平台合計）
+function getIPCycles(ipId){
+  const allVids=loadVideos().filter(v=>v.ipId===ipId);
+  if(!allVids.length)return[];
+  allVids.sort((a,b)=>{
+    const da=a.publishDate||a.month+'-01';
+    const db=b.publishDate||b.month+'-01';
+    return da.localeCompare(db);
+  });
   const cycles=[];
   for(let i=0;i<allVids.length;i+=CYCLE_SIZE){
     const chunk=allVids.slice(i,i+CYCLE_SIZE);
@@ -3091,64 +3110,82 @@ function renderTotal(){
   const sel=document.getElementById('total-quarter-sel');
   if(!sel)return;
 
-  // Build cycle options per IP — show current cycle for each IP
-  const allVids=loadVideos();
-  const ipCycleData=S.ips.map((ip,idx)=>{
-    const cycles=getIPCycles(ip.id);
-    return{ip,cycles,col:ACCENTS[idx%ACCENTS.length]};
-  });
-
-  // Populate selector with current cycles
-  const cycleOptions=ipCycleData.flatMap(({ip,cycles})=>
-    cycles.map(c=>`<option value="${ip.id}::${c.cycleNum}">${ip.name.slice(0,10)} 第${c.cycleNum}週期（${c.firstDate.slice(0,7)}～${c.lastDate.slice(0,7)}）</option>`)
-  );
-  if(!cycleOptions.length)cycleOptions.push('<option value="">尚無影片數據</option>');
-  const curVal=sel.value;
-  sel.innerHTML=cycleOptions.join('');
-  if(curVal&&sel.querySelector(`option[value="${curVal}"]`))sel.value=curVal;
-
-  // Goal bars — show current (latest) cycle per IP
+  // Goal bars:
+  // - 各平台各自 24 支一期，期數通常同步
+  // - 150萬目標：所有平台當期觀看數加總
+  // - 各平台支數分開顯示
   const goalsEl=document.getElementById('total-goal-bars');
   if(!goalsEl)return;
-  goalsEl.innerHTML=ipCycleData.map(({ip,cycles,col})=>{
-    if(!cycles.length)return`<div class="goal-bar-wrap">
+  goalsEl.innerHTML=S.ips.map((ip,idx)=>{
+    const col=ACCENTS[idx%ACCENTS.length];
+    const ipPlats=(ip.platforms||[]);
+    const platData=ipPlats.map(platId=>{
+      const p=PLATFORMS.find(x=>x.id===platId);
+      const cycles=getPlatformCycles(ip.id,platId);
+      return{platId,p,cycles,cur:cycles.length?cycles[cycles.length-1]:null};
+    }).filter(d=>d.cur); // 只顯示有資料的平台
+
+    if(!platData.length)return`<div class="goal-bar-wrap">
       <div style="font-size:13px;font-weight:700;color:var(--white);margin-bottom:4px">${ip.name}</div>
       <div style="font-size:12px;color:var(--gray2)">尚無影片數據，無法計算週期</div>
     </div>`;
 
-    const cur=cycles[cycles.length-1]; // current (latest) cycle
-    const pct=Math.min(cur.totalViews/GOAL_TARGET*100,100);
+    // 所有有資料平台的當期觀看加總
+    const totalViews=platData.reduce((s,{cur})=>s+cur.totalViews,0);
+    const pct=Math.min(totalViews/GOAL_TARGET*100,100);
     const reached=pct>=100,near=pct>=60;
-    const remaining=Math.max(0,GOAL_TARGET-cur.totalViews);
-    const vidsLeft=CYCLE_SIZE-cur.vids.length;
+    const remaining=Math.max(0,GOAL_TARGET-totalViews);
+
+    // 各平台支數列
+    const platRows=platData.map(({platId,p,cur})=>{
+      const platColor=p?.color||col;
+      const vidsLeft=CYCLE_SIZE-cur.vids.length;
+      return`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+        <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${platColor}22;color:${platColor};flex-shrink:0;min-width:44px;text-align:center">${p?.name||platId}</span>
+        <span style="font-size:11px;color:var(--gray)">第 <strong style="color:${platColor}">${cur.cycleNum}</strong> 期</span>
+        <span style="font-size:11px;color:var(--gray)"><strong style="color:var(--white)">${cur.vids.length}</strong> / 24 支</span>
+        ${!cur.isComplete
+          ?`<span style="font-size:10px;color:var(--amber)">還差 ${vidsLeft} 支</span>`
+          :`<span style="font-size:10px;color:#4ade80">✓ 滿期</span>`}
+        <span style="margin-left:auto;font-family:'Barlow Condensed',sans-serif;font-size:13px;color:${platColor}">${fmt(cur.totalViews)}</span>
+      </div>`;
+    }).join('');
+
+    // 歷史週期（取第一個有資料平台的歷史）
+    const histCycles=platData[0]?.cycles||[];
+    const histHtml=histCycles.length>1
+      ?`<div style="margin-top:6px;font-size:10px;color:var(--gray2)">歷史：${histCycles.slice(0,-1).map(c=>`第${c.cycleNum}期 ${fmt(c.totalViews)}${c.totalViews>=GOAL_TARGET?' ✓':''}`).join(' · ')}</div>`:'';
+
     return`<div class="goal-bar-wrap">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-        <div>
-          <div style="font-size:13px;font-weight:700;color:var(--white);margin-bottom:3px">${ip.name}</div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px">
-            <span style="color:var(--gray)">第 <strong style="color:${col}">${cur.cycleNum}</strong> 週期</span>
-            <span style="color:var(--gray)">本週期 <strong style="color:var(--white)">${cur.vids.length}</strong> / 24 支</span>
-            <span style="color:var(--gray)">起始：<strong style="color:var(--white)">${cur.firstDate.slice(0,7)}</strong></span>
-            ${!cur.isComplete?`<span style="color:var(--amber)">還差 ${vidsLeft} 支滿週期</span>`:`<span style="color:#4ade80">✓ 週期已滿</span>`}
-          </div>
-        </div>
-        <div style="text-align:right;flex-shrink:0;margin-left:12px">
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:${col};line-height:1">${fmt(cur.totalViews)}</div>
-          <div style="font-size:10px;color:${reached?'#4ade80':near?'#fbbf24':'var(--gray)'}">
-            ${reached?'🎉 已達標':`還差 ${fmt(remaining)}`}
-          </div>
+      <div style="font-size:13px;font-weight:700;color:${col};margin-bottom:8px">${ip.name}</div>
+      ${platRows}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;margin-bottom:4px">
+        <span style="font-size:11px;color:var(--gray)">全平台合計</span>
+        <div style="text-align:right">
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:${col}">${fmt(totalViews)}</span>
+          <span style="font-size:10px;color:${reached?'#4ade80':near?'#fbbf24':'var(--gray)'};margin-left:8px">${reached?'🎉 已達標':`還差 ${fmt(remaining)}`}</span>
         </div>
       </div>
       <div class="goal-track">
         <div class="goal-fill" style="width:${pct.toFixed(1)}%;background:${reached?'linear-gradient(90deg,#4ade80,#BCCF36)':near?'linear-gradient(90deg,#fbbf24,#fb923c)':col+'99'}"></div>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:10px;margin-top:2px">
-        <span style="color:var(--gray2)">目標：150 萬 / 24 支</span>
+        <span style="color:var(--gray2)">目標：150 萬 / 週期</span>
         <span style="color:${reached?'#4ade80':near?'#fbbf24':'var(--gray)'}"><strong>${pct.toFixed(1)}%</strong></span>
       </div>
-      ${cycles.length>1?`<div style="margin-top:8px;font-size:10px;color:var(--gray2)">歷史週期：${cycles.slice(0,-1).map(c=>`第${c.cycleNum}期 ${fmt(c.totalViews)}${c.totalViews>=GOAL_TARGET?' ✓':''}`).join(' · ')}</div>`:''}
+      ${histHtml}
     </div>`;
   }).join('');
+
+  // Selector
+  const cycleOptions=S.ips.flatMap(ip=>{
+    const allCycles=getIPCycles(ip.id);
+    return allCycles.map(c=>`<option value="${ip.id}::${c.cycleNum}">${ip.name.slice(0,10)} 第${c.cycleNum}週期（${c.firstDate.slice(0,7)}～${c.lastDate.slice(0,7)}）</option>`);
+  });
+  if(!cycleOptions.length)cycleOptions.push('<option value="">尚無影片數據</option>');
+  const curVal=sel.value;
+  sel.innerHTML=cycleOptions.join('');
+  if(curVal&&sel.querySelector(`option[value="${curVal}"]`))sel.value=curVal;
 
   // Monthly trend chart per IP
   const allMonths=[...new Set(S.data.map(d=>d.date.slice(0,7)))].sort().slice(-6);
@@ -3609,7 +3646,7 @@ function renderIPAnalysis(){
         <div><div class="stat-label">開始發布</div><div style="font-size:14px;font-weight:700;color:var(--white)">${firstDate?firstDate.slice(0,7):'—'}</div></div>
         <div><div class="stat-label">累積觀看</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:${col}">${fmt(totalViews)}</div></div>
         <div><div class="stat-label">單片平均</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:${col}">${fmt(avgViews)}</div></div>
-        <div><div class="stat-label">當前週期</div><div style="font-size:14px;font-weight:700;color:var(--white)">第 ${curCycle?curCycle.cycleNum:'—'} 期 <span style="font-size:11px;color:var(--gray)">${curCycle?curCycle.vids.length+'/24 支':''}</span></div></div>
+        <div><div class="stat-label">當前週期</div><div style="font-size:14px;font-weight:700;color:var(--white)">第 ${curCycle?curCycle.cycleNum:'—'} 期 <span style="font-size:11px;color:var(--gray)">${curCycle?curCycle.vids.length+'/'+curCycle.cycleSize+' 支':''}</span></div></div>
         <div><div class="stat-label">活躍平台</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${platforms.map(pid=>{const p=PLATFORMS.find(x=>x.id===pid);return p?`<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:${p.color}22;color:${p.color}">${p.name}</span>`:''}).join('')}</div></div>
       </div>`;
   }
