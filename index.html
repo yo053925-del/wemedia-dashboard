@@ -1943,12 +1943,12 @@ function parseMetaReelsCsv(text){
 
   const vids=[];
   rows.slice(1).forEach(cols=>{
-    // 只取「總期間」那列（每支影片有多列不同時段，總期間是累積值）
-    const dateType=(cols[dateTypeIdx]||'').trim();
-    if(dateType!=='總期間'&&dateType!=='')return; // 若無日期類型欄位則全取
+    // 跳過明顯不是影片的列（標題或摘要列）
     const title=(cols[tIdx]||'').trim();
     if(!title)return;
-    const views=parseViews(cols[vIdx]);
+    const viewsRaw=(cols[vIdx]||'').trim();
+    if(!viewsRaw)return;
+    const views=parseViews(viewsRaw);
     if(isNaN(views)||views<0)return;
     const likes=lIdx>=0?parseViews(cols[lIdx]):null;
     const comments=cIdx>=0?parseViews(cols[cIdx]):null;
