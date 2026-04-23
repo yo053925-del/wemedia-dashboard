@@ -1605,6 +1605,11 @@ async function loadCSVFile(input){
   const file=input.files[0];if(!file)return;
   const text=await file.text();
   const firstRows=parseCSVText(text);
+  if(firstRows.length>0&&isMetaReelsCsv(firstRows[0])){
+    showMetaReelsModal(text);
+    input.value='';
+    return;
+  }
   if(firstRows.length>0&&isMetaInsightsCsv(firstRows[0])){
     showMetaImportModal(text);
     input.value='';
@@ -2375,17 +2380,24 @@ function showMetaReelsModal(text){
   const ex=document.getElementById('meta-reels-modal');if(ex)ex.remove();
   const{vids}=parseMetaReelsCsv(text);
 
-  // Auto-detect IP from account name in CSV (帳號名稱 column)
+  // Auto-detect IP from account username in CSV
   const rows=parseCSVText(text);
   const headers=rows[0]||[];
   const acctNameIdx=headers.findIndex(h=>h.trim()==='帳號名稱');
   const acctUserIdx=headers.findIndex(h=>h.trim()==='帳號用戶名稱');
-  const acctName=rows[1]?.(acctNameIdx>=0?acctNameIdx:0)||'';
-  const acctUser=rows[1]?.(acctUserIdx>=0?acctUserIdx:0)||'';
+  const acctName=(rows[1]&&acctNameIdx>=0?rows[1][acctNameIdx]:'')||'';
+  const acctUser=(rows[1]&&acctUserIdx>=0?rows[1][acctUserIdx]:'')||'';
+  // Try matching username first (more unique), then account name
   const guessedIP=S.ips.find(x=>{
-    const hint=(acctName+acctUser).toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g,'');
-    const name=x.name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g,'');
-    return name.slice(0,5)===hint.slice(0,5)||hint.includes(name.slice(0,5))||name.includes(hint.slice(0,5));
+    const nameClean=x.name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g,'');
+    const userClean=acctUser.toLowerCase().replace(/[^a-z0-9]/g,'');
+    const acctClean=acctName.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g,'');
+    // Match username directly (e.g. bei_minus2million → 小貝)
+    if(userClean&&nameClean.includes(userClean.slice(0,4)))return true;
+    if(userClean&&userClean.includes(nameClean.slice(0,4)))return true;
+    // Match account name
+    if(acctClean&&(nameClean.includes(acctClean.slice(0,3))||acctClean.includes(nameClean.slice(0,3))))return true;
+    return false;
   });
 
   const ipOpts=S.ips.map(ip=>`<option value="${ip.id}" ${ip===guessedIP?'selected':''}>${ip.name}</option>`).join('');
