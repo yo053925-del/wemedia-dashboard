@@ -1,0 +1,3959 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WEMEDIA — 短影音代操數據儀表板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;800;900&family=Barlow:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --navy:#082946;--navy2:#0a3355;--navy3:#0d3a5f;
+  --lime:#BCCF36;--lime2:#9aaa28;
+  --dark:#041929;--darker:#02111e;
+  --white:#f0f4f8;--gray:#8fa5b8;--gray2:#4a6378;
+  --green:#4ade80;--red:#f87171;--amber:#fbbf24;
+  --r:3px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;min-height:100vh;background:var(--darker);font-family:'Barlow','Noto Sans TC',sans-serif;color:var(--white);overflow-x:hidden}
+input,select,textarea,button{font-family:inherit}
+button{cursor:pointer}
+a{color:inherit;text-decoration:none}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(188,207,54,.3);border-radius:2px}
+
+.grid-bg{position:fixed;inset:0;z-index:0;
+  background-image:linear-gradient(rgba(188,207,54,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(188,207,54,.03) 1px,transparent 1px);
+  background-size:60px 60px;
+  mask-image:radial-gradient(ellipse 90% 90% at 50% 50%,black 30%,transparent 100%);pointer-events:none}
+.scanline{position:fixed;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--lime),transparent);
+  opacity:.2;animation:scan 6s linear infinite;pointer-events:none;z-index:9999}
+@keyframes scan{from{top:0;opacity:.2}80%{opacity:.05}to{top:100vh;opacity:0}}
+
+/* ═══════════ LOGIN SCREEN ═══════════ */
+#login-screen{position:fixed;inset:0;z-index:500;background:var(--darker);
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .4s,visibility .4s}
+#login-screen.hidden{opacity:0;visibility:hidden;pointer-events:none}
+
+.login-outer{width:100%;max-width:440px;padding:24px}
+.login-brand{text-align:center;margin-bottom:36px;animation:fadeUp .6s .1s both}
+.login-logomark{width:56px;height:56px;margin:0 auto 16px;
+  clip-path:polygon(12% 0%,88% 0%,100% 12%,100% 88%,88% 100%,12% 100%,0% 88%,0% 12%);
+  background:rgba(188,207,54,.08);border:2px solid var(--lime);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 24px rgba(188,207,54,.15)}
+.login-logomark svg{width:28px;height:28px}
+.login-brand-name{font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:900;
+  letter-spacing:.16em;color:var(--white);line-height:1}
+.login-brand-sub{font-size:10px;color:var(--lime);letter-spacing:.24em;text-transform:uppercase;margin-top:4px}
+
+.login-card{background:rgba(8,41,70,.6);border:1px solid rgba(188,207,54,.22);
+  border-radius:4px;padding:36px 32px;position:relative;backdrop-filter:blur(20px);
+  animation:fadeUp .7s .25s both}
+.login-card::before,.login-card::after{content:'';position:absolute;width:20px;height:20px;
+  border-color:var(--lime);border-style:solid}
+.login-card::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.login-card::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+
+.lc-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;
+  color:var(--white);letter-spacing:.06em;margin-bottom:4px}
+.lc-sub{font-size:12px;color:var(--gray);margin-bottom:24px;line-height:1.6}
+
+.frow{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.frow label{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gray)}
+.fi{width:100%;padding:11px 14px;background:rgba(4,25,41,.85);
+  border:1px solid rgba(188,207,54,.22);color:var(--white);font-size:14px;
+  border-radius:2px;outline:none;transition:border-color .2s,box-shadow .2s}
+.fi::placeholder{color:rgba(143,165,184,.3)}
+.fi:focus{border-color:var(--lime);box-shadow:0 0 0 3px rgba(188,207,54,.08)}
+.fi-err{border-color:rgba(248,113,113,.5)!important}
+
+.err-msg{font-size:12px;color:var(--red);min-height:16px;margin-bottom:10px}
+
+.btn-login{width:100%;padding:13px;background:var(--lime);color:var(--navy);
+  border:none;border-radius:2px;font-family:'Barlow Condensed',sans-serif;
+  font-size:17px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+  transition:all .2s;position:relative;overflow:hidden}
+.btn-login:hover{background:#cde040;box-shadow:0 0 20px rgba(188,207,54,.35)}
+.btn-login:disabled{opacity:.5;cursor:not-allowed}
+
+.login-footer{margin-top:20px;padding-top:16px;border-top:1px solid rgba(188,207,54,.1);
+  display:flex;align-items:center;gap:9px}
+.login-footer svg{color:rgba(188,207,54,.5);flex-shrink:0}
+.login-footer p{font-size:11px;color:var(--gray);line-height:1.5}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+/* ═══════════ APP SHELL ═══════════ */
+#app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
+#app.hidden{display:none}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;height:54px;
+  background:rgba(4,25,41,.9);border-bottom:1px solid rgba(188,207,54,.12);
+  backdrop-filter:blur(12px);position:sticky;top:0;z-index:100;flex-shrink:0}
+.logo-wrap{display:flex;align-items:center;gap:11px}
+.logo-mark{width:32px;height:32px;
+  clip-path:polygon(12% 0%,88% 0%,100% 12%,100% 88%,88% 100%,12% 100%,0% 88%,0% 12%);
+  background:rgba(188,207,54,.1);border:1.5px solid var(--lime);
+  display:flex;align-items:center;justify-content:center}
+.logo-mark svg{width:16px;height:16px}
+.logo-name{font-family:'Barlow Condensed',sans-serif;font-size:21px;font-weight:900;letter-spacing:.14em}
+.logo-tag{font-size:8px;color:var(--lime);letter-spacing:.2em;text-transform:uppercase}
+
+.tab-nav{display:flex;gap:0}
+.tab-btn{padding:6px 16px;border:none;background:transparent;color:var(--gray);
+  font-size:12px;font-weight:600;letter-spacing:.05em;
+  border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.tab-btn.active{color:var(--lime);border-bottom-color:var(--lime)}
+.tab-btn:hover{color:var(--white)}
+.tab-btn.hidden-tab{display:none}
+
+.topbar-right{display:flex;align-items:center;gap:12px}
+.live-pill{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--gray);
+  letter-spacing:.08em;padding:4px 10px;border:1px solid rgba(188,207,54,.15);border-radius:20px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--lime);
+  box-shadow:0 0 6px var(--lime);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+.user-chip{display:flex;align-items:center;gap:8px;padding:5px 12px;
+  background:rgba(8,41,70,.6);border:1px solid rgba(188,207,54,.18);border-radius:20px;cursor:pointer}
+.user-avatar{width:22px;height:22px;border-radius:50%;background:var(--lime);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:800;color:var(--navy)}
+.user-email{font-size:11px;color:var(--gray);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.role-badge{font-size:9px;font-weight:700;letter-spacing:.08em;padding:2px 7px;border-radius:10px}
+.role-superadmin{background:rgba(188,207,54,.2);color:var(--lime);border:1px solid rgba(188,207,54,.4)}
+.role-admin{background:rgba(251,191,36,.15);color:var(--amber);border:1px solid rgba(251,191,36,.3)}
+.role-editor{background:rgba(56,189,248,.15);color:#38bdf8;border:1px solid rgba(56,189,248,.3)}
+.role-viewer{background:rgba(156,163,175,.1);color:#9ca3af;border:1px solid rgba(156,163,175,.2)}
+
+.btn-sm{padding:5px 12px;border:1px solid rgba(188,207,54,.25);background:transparent;
+  color:rgba(188,207,54,.8);font-size:11px;font-weight:600;letter-spacing:.07em;
+  border-radius:2px;transition:all .15s}
+.btn-sm:hover{background:rgba(188,207,54,.08);color:var(--lime)}
+.btn-sm-red{border-color:rgba(248,113,113,.3);color:var(--red)}
+.btn-sm-red:hover{background:rgba(248,113,113,.08);color:var(--red)}
+
+/* MAIN */
+.main{flex:1;display:flex;overflow:hidden;height:calc(100vh - 54px)}
+.sidebar{width:232px;flex-shrink:0;background:rgba(4,25,41,.65);
+  border-right:1px solid rgba(188,207,54,.1);
+  padding:18px 13px;overflow-y:auto;display:flex;flex-direction:column;gap:20px}
+.content{flex:1;padding:22px 26px;overflow-y:auto}
+
+.sb-title{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--lime);
+  display:flex;align-items:center;gap:7px;margin-bottom:9px}
+.sb-title::after{content:'';flex:1;height:1px;background:rgba(188,207,54,.12)}
+
+.ip-item{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:var(--r);
+  border:1px solid transparent;cursor:pointer;transition:all .14s;margin-bottom:3px}
+.ip-item:hover{background:rgba(188,207,54,.04);border-color:rgba(188,207,54,.1)}
+.ip-item.checked{background:rgba(188,207,54,.07);border-color:rgba(188,207,54,.2)}
+.ip-cb{width:14px;height:14px;border-radius:2px;border:2px solid var(--gray2);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .14s}
+.ip-item.checked .ip-cb{background:var(--lime);border-color:var(--lime)}
+.ip-name{font-size:11px;color:var(--gray);transition:color .14s;line-height:1.35}
+.ip-item.checked .ip-name{color:var(--white);font-weight:500}
+
+.plat-grid{display:flex;flex-wrap:wrap;gap:5px}
+.plat-pill{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;
+  cursor:pointer;transition:all .14s;border-width:1.5px;border-style:solid;opacity:.4}
+.plat-pill.active{opacity:1}
+
+.date-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.date-btn{padding:7px 4px;border-radius:var(--r);border:1.5px solid rgba(255,255,255,.07);
+  background:rgba(8,41,70,.4);color:var(--gray);font-size:11px;font-weight:600;text-align:center;transition:all .14s}
+.date-btn.active{border-color:var(--lime);background:rgba(188,207,54,.1);color:var(--lime)}
+
+/* CONTENT TABS */
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* STAT CARDS */
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:18px}
+.stat-card{background:rgba(8,41,70,.5);border:1px solid rgba(188,207,54,.16);
+  border-radius:var(--r);padding:15px 18px}
+.stat-label{font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--lime);margin-bottom:5px}
+.stat-val{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;
+  color:var(--white);line-height:1}
+.stat-sub{font-size:10px;color:var(--gray);margin-top:3px}
+
+.chart-box{background:rgba(8,41,70,.42);border:1px solid rgba(188,207,54,.13);
+  border-radius:var(--r);padding:18px 20px;margin-bottom:14px}
+.chart-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.chart-title{font-size:13px;font-weight:700;color:var(--white)}
+.chart-sub{font-size:11px;color:var(--gray);margin-top:2px}
+.ct-btns{display:flex;gap:4px}
+.ct-btn{padding:4px 11px;border:1px solid rgba(188,207,54,.18);background:transparent;
+  color:var(--gray);font-size:11px;font-weight:600;border-radius:2px;transition:all .14s}
+.ct-btn.active{background:rgba(188,207,54,.13);border-color:var(--lime);color:var(--lime)}
+
+.ip-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.ip-card{background:rgba(8,41,70,.42);border:1px solid rgba(188,207,54,.1);
+  border-radius:var(--r);padding:15px 16px;border-left-width:3px}
+.ip-card-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.ip-card-name{font-size:12px;font-weight:700;color:var(--white);line-height:1.3}
+.ip-card-total{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;line-height:1}
+.plat-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:7px}
+.ptag{font-size:9px;font-weight:700;letter-spacing:.08em;padding:2px 6px;border-radius:2px}
+
+/* DATA ENTRY */
+.de-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.panel{background:rgba(8,41,70,.42);border:1px solid rgba(188,207,54,.13);
+  border-radius:var(--r);padding:20px}
+.panel-title{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;
+  color:var(--lime);letter-spacing:.07em;margin-bottom:3px}
+.panel-sub{font-size:11px;color:var(--gray);margin-bottom:18px;line-height:1.6}
+.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.fgroup{display:flex;flex-direction:column;gap:4px;margin-bottom:11px}
+.fgroup label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gray)}
+.fgroup select,.fgroup input[type=text],.fgroup input[type=number],.fgroup input[type=date],.fgroup input[type=email],.fgroup input[type=password]{
+  padding:9px 11px;background:rgba(4,25,41,.85);border:1px solid rgba(188,207,54,.2);
+  color:var(--white);font-size:13px;border-radius:2px;outline:none;transition:border-color .2s}
+.fgroup select:focus,.fgroup input:focus{border-color:var(--lime)}
+.fgroup select option{background:#082946}
+
+.btn-add{padding:10px 20px;background:var(--lime);color:var(--navy);border:none;border-radius:2px;
+  font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;
+  letter-spacing:.13em;transition:all .2s}
+.btn-add:hover{background:#cde040;box-shadow:0 0 14px rgba(188,207,54,.3)}
+.btn-add:disabled{opacity:.4;cursor:not-allowed}
+
+.csv-area{width:100%;min-height:110px;padding:11px;background:rgba(4,25,41,.85);
+  border:1px solid rgba(188,207,54,.2);color:var(--white);font-size:12px;
+  font-family:monospace;border-radius:2px;resize:vertical;outline:none;line-height:1.6}
+.csv-area:focus{border-color:var(--lime)}
+.csv-hint{font-size:11px;color:var(--gray);margin-bottom:9px;line-height:1.7;
+  background:rgba(188,207,54,.03);border:1px solid rgba(188,207,54,.1);
+  border-radius:2px;padding:9px 11px}
+.csv-hint code{color:var(--lime);font-family:monospace}
+
+.tbl-wrap{overflow-x:auto;margin-top:16px}
+.dtbl{width:100%;border-collapse:collapse;font-size:12px}
+.dtbl th{padding:8px 13px;text-align:left;font-size:9px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--lime);background:rgba(188,207,54,.06);
+  border-bottom:1px solid rgba(188,207,54,.13)}
+.dtbl td{padding:8px 13px;border-bottom:1px solid rgba(188,207,54,.06);color:var(--gray)}
+.dtbl tr:hover td{background:rgba(188,207,54,.02);color:var(--white)}
+
+/* BUTTONS */
+.btn-del{background:transparent;border:1px solid rgba(248,113,113,.3);color:var(--red);
+  font-size:10px;font-weight:700;padding:3px 8px;border-radius:2px;transition:all .14s}
+.btn-del:hover{background:rgba(248,113,113,.08)}
+.btn-edit{background:transparent;border:1px solid rgba(188,207,54,.28);color:rgba(188,207,54,.8);
+  font-size:10px;font-weight:700;padding:3px 8px;border-radius:2px;transition:all .14s;margin-right:4px}
+.btn-edit:hover{background:rgba(188,207,54,.08)}
+
+.plat-check-grid{display:flex;flex-wrap:wrap;gap:7px;margin-top:3px}
+.plat-ck{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;
+  color:var(--gray);padding:4px 9px;border:1px solid rgba(255,255,255,.07);
+  border-radius:20px;transition:all .14s}
+.plat-ck.on{color:var(--white);border-color:rgba(188,207,54,.28);background:rgba(188,207,54,.07)}
+
+/* ENTRY METHOD TABS */
+.entry-method-btn{padding:8px 16px;border:none;border-bottom:2px solid transparent;
+  background:transparent;color:var(--gray);font-size:12px;font-weight:600;
+  letter-spacing:.04em;transition:all .15s;cursor:pointer}
+.entry-method-btn.active{color:var(--lime);border-bottom-color:var(--lime)}
+.entry-method-btn:hover{color:var(--white)}
+
+/* PLATFORM GUIDE */
+.plat-guide-row{display:flex;align-items:flex-start;gap:9px;font-size:11px;
+  color:var(--gray);line-height:1.6}
+.plat-guide-badge{flex-shrink:0;padding:2px 7px;border-radius:2px;font-size:10px;
+  font-weight:800;letter-spacing:.08em;margin-top:1px}
+
+/* VIDEO RANKING */
+.vrank-card{background:rgba(8,41,70,.42);border:1px solid rgba(188,207,54,.12);
+  border-radius:var(--r);padding:0;overflow:hidden;margin-bottom:12px}
+.vrank-header{display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid rgba(188,207,54,.08);cursor:pointer}
+.vrank-ip-name{font-size:13px;font-weight:700;color:var(--white)}
+.vrank-meta{font-size:11px;color:var(--gray)}
+.vrank-body{padding:14px 16px}
+.vrank-row{display:flex;align-items:center;gap:10px;padding:6px 0;
+  border-bottom:1px solid rgba(188,207,54,.05)}
+.vrank-row:last-child{border-bottom:none}
+.vrank-rank{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
+.rank-1{background:rgba(188,207,54,.2);color:var(--lime)}
+.rank-2{background:rgba(255,255,255,.08);color:#9ca3af}
+.rank-3{background:rgba(251,146,60,.1);color:#fb923c}
+.rank-n{background:rgba(255,255,255,.04);color:#4a6378}
+.rank-last{background:rgba(248,113,113,.1);color:var(--red)}
+.vrank-bar-wrap{flex:1;display:flex;flex-direction:column;gap:3px}
+.vrank-title{font-size:12px;color:var(--white);font-weight:500;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}
+.vrank-bar-row{display:flex;align-items:center;gap:8px}
+.vrank-bar-bg{flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden}
+.vrank-bar-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.vrank-views{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;
+  color:var(--white);flex-shrink:0;min-width:52px;text-align:right}
+.vrank-plat-badge{font-size:9px;font-weight:700;padding:1px 5px;border-radius:2px;flex-shrink:0}
+.vrank-add-form{background:rgba(4,25,41,.6);border-top:1px solid rgba(188,207,54,.1);
+  padding:12px 16px;display:none}
+.vrank-add-form.open{display:block}
+
+/* PERMISSION BADGES */
+.perm-select{padding:4px 8px;background:rgba(4,25,41,.9);border:1px solid rgba(188,207,54,.2);
+  color:var(--white);font-size:11px;border-radius:2px;outline:none}
+.perm-select option{background:#082946}
+
+/* ACCESS DENIED */
+.access-denied{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:300px;gap:12px;opacity:.6}
+.access-denied svg{width:48px;height:48px;color:var(--gray2)}
+.access-denied p{font-size:14px;color:var(--gray);text-align:center;line-height:1.6}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(2,17,30,.85);z-index:800;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;visibility:hidden;transition:all .25s}
+.modal-overlay.open{opacity:1;visibility:visible}
+.modal{background:rgba(8,41,70,.97);border:1px solid rgba(188,207,54,.25);
+  border-radius:4px;padding:28px 28px 24px;width:100%;max-width:420px;position:relative;
+  transform:translateY(12px);transition:transform .25s}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;
+  color:var(--lime);letter-spacing:.07em;margin-bottom:4px}
+.modal-sub{font-size:12px;color:var(--gray);margin-bottom:20px;line-height:1.6}
+.modal-close{position:absolute;top:14px;right:16px;background:transparent;border:none;
+  color:var(--gray);font-size:18px;line-height:1;transition:color .14s}
+.modal-close:hover{color:var(--white)}
+
+/* VIDEO RANK VIEW TABS */
+.vrank-view-btn{padding:7px 16px;border:none;border-bottom:2px solid transparent;
+  background:transparent;color:var(--gray);font-size:12px;font-weight:600;
+  letter-spacing:.04em;transition:all .15s;cursor:pointer}
+.vrank-view-btn.active{color:var(--lime);border-bottom-color:var(--lime)}
+.vrank-view-btn:hover{color:var(--white)}
+
+/* GOAL PROGRESS */
+.goal-bar-wrap{padding:10px 0;border-bottom:1px solid rgba(188,207,54,.06)}
+.goal-bar-wrap:last-child{border-bottom:none}
+.goal-track{height:10px;background:rgba(255,255,255,.06);border-radius:5px;overflow:hidden;margin-bottom:3px}
+.goal-fill{height:100%;border-radius:5px;transition:width .7s ease}
+.goal-fill.reached{background:linear-gradient(90deg,#4ade80,#BCCF36)}
+.goal-fill.near{background:linear-gradient(90deg,#fbbf24,#fb923c)}
+.goal-fill.far{background:rgba(188,207,54,.4)}
+.growth-up{color:#4ade80;font-size:11px;font-weight:700}
+.growth-dn{color:var(--red);font-size:11px;font-weight:700}
+.growth-flat{color:var(--gray);font-size:11px}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;right:22px;z-index:9999;
+  background:rgba(8,41,70,.97);border:1px solid var(--lime);border-radius:var(--r);
+  padding:11px 18px;font-size:13px;color:var(--lime);font-weight:600;
+  transform:translateY(70px);opacity:0;transition:all .28s;pointer-events:none;
+  max-width:300px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.err{border-color:var(--red);color:var(--red)}
+
+@media(max-width:960px){
+  .stat-row{grid-template-columns:1fr 1fr}
+  .de-grid{grid-template-columns:1fr}
+  .sidebar{width:200px}
+}
+@media(max-width:680px){
+  .sidebar{display:none}
+  .topbar{padding:0 14px}
+  .content{padding:14px}
+  .stat-row{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="scanline"></div>
+
+<!-- ═══════════════════ LOGIN SCREEN ═══════════════════ -->
+<div id="login-screen">
+  <div class="login-outer">
+    <div class="login-brand">
+      <div class="login-logomark">
+        <svg viewBox="0 0 20 20" fill="none">
+          <rect x="2" y="12" width="3" height="6" rx=".5" fill="#BCCF36" opacity=".6"/>
+          <rect x="7" y="7" width="3" height="11" rx=".5" fill="#BCCF36" opacity=".8"/>
+          <rect x="12" y="2" width="3" height="16" rx=".5" fill="#BCCF36"/>
+          <path d="M2 9 L6 5.5 L10 7.5 L15 2.5" stroke="#BCCF36" stroke-width=".8" opacity=".35" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="login-brand-name">WEMEDIA</div>
+      <div class="login-brand-sub">短影音代操數據儀表板</div>
+    </div>
+    <div class="login-card">
+      <div class="lc-title">歡迎回來</div>
+      <div class="lc-sub">使用您的工作信箱登入儀表板</div>
+      <div class="frow">
+        <label>電子信箱</label>
+        <input class="fi" type="email" id="login-email" placeholder="your@email.com" autocomplete="email"/>
+      </div>
+      <div class="frow">
+        <label>密碼</label>
+        <input class="fi" type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password"/>
+      </div>
+      <div class="err-msg" id="login-err"></div>
+      <button class="btn-login" onclick="doLogin()">登入工作台 →</button>
+      <div style="margin-top:10px;text-align:center">
+        <button onclick="testSupabaseConnection()" style="background:transparent;border:none;color:rgba(188,207,54,.5);font-size:11px;cursor:pointer;text-decoration:underline">🔧 測試伺服器連線</button>
+      </div>
+      <div style="margin-top:14px;text-align:center">
+        <button onclick="resetSuperadmin()" style="background:transparent;border:none;color:rgba(188,207,54,.4);font-size:11px;cursor:pointer;text-decoration:underline;letter-spacing:.04em">
+          ⚠ 無法登入？點此重設超級管理員密碼
+        </button>
+      </div>
+      <div class="login-footer">
+        <svg viewBox="0 0 16 18" fill="none" width="14" height="16">
+          <path d="M8 1L1 4V9C1 12.5 4 15.5 8 16.5C12 15.5 15 12.5 15 9V4L8 1Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+          <path d="M5 9L7 11L11 7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <p>此系統僅供 WEMEDIA 授權人員使用<br/>如需開通帳號請聯繫管理者</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ APP ═══════════════════ -->
+<div id="app" class="hidden">
+  <header class="topbar">
+    <div class="logo-wrap">
+      <div class="logo-mark">
+        <svg viewBox="0 0 20 20" fill="none">
+          <rect x="2" y="12" width="3" height="6" rx=".5" fill="#BCCF36" opacity=".6"/>
+          <rect x="7" y="7" width="3" height="11" rx=".5" fill="#BCCF36" opacity=".8"/>
+          <rect x="12" y="2" width="3" height="16" rx=".5" fill="#BCCF36"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">WEMEDIA</div>
+        <div class="logo-tag">短影音代操儀表板</div>
+      </div>
+    </div>
+
+    <nav class="tab-nav">
+      <button class="tab-btn active" id="tab-btn-overview" onclick="switchTab('overview',this)">總覽</button>
+      <button class="tab-btn" id="tab-btn-videos" onclick="switchTab('videos',this)">🏆 影片排名</button>
+      <button class="tab-btn" id="tab-btn-total" onclick="switchTab('total',this)">📊 總流量</button>
+      <button class="tab-btn" id="tab-btn-ipanalysis" onclick="switchTab('ipanalysis',this)">🔍 IP 分析</button>
+      <button class="tab-btn hidden-tab" id="tab-btn-entry" onclick="switchTab('entry',this)">數據輸入</button>
+      <button class="tab-btn hidden-tab" id="tab-btn-ipmgmt" onclick="switchTab('ipmgmt',this)">IP 管理</button>
+      <button class="tab-btn hidden-tab" id="tab-btn-users" onclick="switchTab('users',this)">成員管理</button>
+    </nav>
+
+    <div class="topbar-right">
+      <div class="live-pill"><div class="dot"></div>LIVE</div>
+      <div class="user-chip" onclick="openProfileModal()">
+        <div class="user-avatar" id="user-avatar-init">?</div>
+        <div>
+          <div class="user-email" id="user-email-display">—</div>
+          <div id="user-role-badge" class="role-badge role-viewer">—</div>
+        </div>
+      </div>
+      <button class="btn-sm" onclick="doLogout()">登出</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <aside class="sidebar">
+      <div>
+        <div class="sb-title">代操 IP</div>
+        <div id="ip-checklist"></div>
+        <button class="btn-sm" style="width:100%;margin-top:5px;font-size:10px" onclick="selectAllIPs()">全選</button>
+      </div>
+      <div>
+        <div class="sb-title">社群平台</div>
+        <div class="plat-grid" id="plat-filter"></div>
+      </div>
+      <div>
+        <div class="sb-title">時間區間</div>
+        <div class="date-grid" id="date-btns"></div>
+      </div>
+    </aside>
+
+    <div class="content">
+
+      <!-- 總覽 -->
+      <div class="tab-pane active" id="tab-overview">
+        <div class="stat-row" id="stat-row"></div>
+
+        <!-- IP 流量比較橫向長條圖 -->
+        <div class="chart-box" style="margin-bottom:14px">
+          <div class="chart-hd">
+            <div>
+              <div class="chart-title">IP 流量比較</div>
+              <div class="chart-sub">各 IP 在所選平台的流量總和排名</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <select id="ip-compare-plat" onchange="renderOverview()" style="background:rgba(4,25,41,.8);border:1px solid rgba(188,207,54,.2);color:var(--white);font-size:11px;padding:4px 8px;border-radius:2px;outline:none">
+                <option value="all">全平台合計</option>
+              </select>
+            </div>
+          </div>
+          <div id="ip-compare-bars"></div>
+        </div>
+
+        <!-- 流量趨勢折線圖 -->
+        <div class="chart-box">
+          <div class="chart-hd">
+            <div>
+              <div class="chart-title">流量趨勢</div>
+              <div class="chart-sub">各平台短影音每日觀看數合計</div>
+            </div>
+            <div class="ct-btns">
+              <button class="ct-btn active" onclick="setChartType('line',this)">折線</button>
+              <button class="ct-btn" onclick="setChartType('bar',this)">柱狀</button>
+            </div>
+          </div>
+          <canvas id="main-chart" height="90"></canvas>
+        </div>
+
+        <!-- IP 卡片（各平台分項） -->
+        <div class="ip-cards" id="ip-cards"></div>
+      </div>
+
+      <!-- 數據輸入 (editor+) -->
+      <div class="tab-pane" id="tab-entry">
+        <div id="entry-access-denied" class="access-denied" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7V12C2 16.5 6.5 20.5 12 22C17.5 20.5 22 16.5 22 12V7L12 2Z" stroke="currentColor" stroke-width="1.5"/><path d="M9 12L11 14L15 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <p>您的權限為<strong style="color:var(--white)">「檢視者」</strong><br/>無法使用數據輸入功能</p>
+        </div>
+        <div id="entry-content">
+
+          <!-- ── 方法切換 tabs ── -->
+          <div style="display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid rgba(188,207,54,.1);padding-bottom:0">
+            <button class="entry-method-btn active" id="emb-manual" onclick="switchEntryMethod('manual',this)">✏️ 手動輸入</button>
+            <button class="entry-method-btn" id="emb-csv" onclick="switchEntryMethod('csv',this)">📄 CSV 匯入</button>
+            <button class="entry-method-btn" id="emb-gsheet" onclick="switchEntryMethod('gsheet',this)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:4px"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#34a853" stroke-width="2"/><path d="M3 9h18M3 15h18M9 3v18" stroke="#34a853" stroke-width="1.5"/></svg>
+              Google Sheets 自動同步
+            </button>
+          </div>
+
+          <!-- ─── 手動輸入 ─── -->
+          <div id="entry-panel-manual">
+            <div class="de-grid">
+              <div class="panel">
+                <div class="panel-title">手動逐筆輸入</div>
+                <div class="panel-sub">選擇 IP、平台、日期，填入觀看數後送出。</div>
+                <div class="fgroup"><label>代操 IP</label><select id="de-ip"></select></div>
+                <div class="form-row-2">
+                  <div class="fgroup"><label>平台</label><select id="de-plat"></select></div>
+                  <div class="fgroup"><label>日期</label><input type="date" id="de-date"/></div>
+                </div>
+                <div class="fgroup"><label>觀看數（Views）</label><input type="number" id="de-views" placeholder="例：125000" min="0"/></div>
+                <button class="btn-add" onclick="addEntry()">＋ 新增紀錄</button>
+              </div>
+              <div class="panel" style="background:rgba(188,207,54,.03)">
+                <div class="panel-title" style="color:var(--gray)">💡 各平台數據取得方式</div>
+                <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
+                  <div class="plat-guide-row">
+                    <span class="plat-guide-badge" style="background:#e1306c22;color:#e1306c">IG</span>
+                    <span>Meta Business Suite → 洞察報告 → 內容 → Reels → 右上角「匯出」→ 下載 CSV</span>
+                  </div>
+                  <div class="plat-guide-row">
+                    <span class="plat-guide-badge" style="background:#ff404022;color:#ff4040">YT</span>
+                    <span>YouTube Studio → 數據分析 → 進階模式 → 右上角「匯出」→ 下載 ZIP</span>
+                  </div>
+                  <div class="plat-guide-row">
+                    <span class="plat-guide-badge" style="background:#69c9d022;color:#69c9d0">TT</span>
+                    <span>TikTok Studio → 內容 → 右上角「匯出」→ 選日期範圍 → 下載 ZIP（Content.csv 含互動數據）</span>
+                  </div>
+                  <div class="plat-guide-row">
+                    <span class="plat-guide-badge" style="background:#6b9be822;color:#6b9be8">FB</span>
+                    <span>Meta Business Suite → 洞察報告 → 內容 → Reels → 右上角「匯出」→ 下載 CSV</span>
+                  </div>
+                  <div class="plat-guide-row">
+                    <span class="plat-guide-badge" style="background:#aaaaaa22;color:#aaaaaa">TH</span>
+                    <span>Threads 目前無後台，需從貼文頁面人工記錄瀏覽數</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ─── CSV 匯入 ─── -->
+          <div id="entry-panel-csv" style="display:none">
+            <div class="de-grid">
+              <div class="panel">
+                <div class="panel-title">CSV 批次匯入</div>
+                <div class="panel-sub">貼上各平台匯出的 CSV，或直接複製數字貼入。支援一次匯入多個 IP 多個平台。</div>
+                <div class="csv-hint">
+                  <strong style="color:var(--lime);display:block;margin-bottom:3px">格式（逗號分隔，第一列為標題可省略）：</strong>
+                  <code>IP名稱,平台,日期(YYYY-MM-DD),觀看數</code><br/>
+                  <code>T大的理財投資筆記,instagram,2025-04-20,125000</code><br/>
+                  <code>小貝財商,tiktok,2025-04-20,340000</code><br/>
+                  <code>林雨暘證券分析師,youtube,2025-04-20,89000</code>
+                </div>
+                <textarea class="csv-area" id="csv-input" placeholder="在此貼上 CSV 資料..."></textarea>
+                <div style="display:flex;gap:8px;margin-top:9px;align-items:center;flex-wrap:wrap">
+                  <button class="btn-add" onclick="importCSV()">⬆ 批次匯入</button>
+                  <label style="font-size:11px;color:var(--gray);cursor:pointer;display:flex;align-items:center;gap:6px">
+                    <input type="file" accept=".csv,.txt" id="csv-file-input" style="display:none" onchange="loadCSVFile(this)"/>
+                    <span class="btn-sm" onclick="document.getElementById('csv-file-input').click()">📁 CSV 檔案</span>
+                  </label>
+                  <label style="font-size:11px;color:var(--gray);cursor:pointer;display:flex;align-items:center;gap:6px">
+                    <input type="file" accept=".zip" id="zip-file-input" style="display:none" onchange="loadZipFile(this)"/>
+                    <span class="btn-sm" style="border-color:rgba(251,191,36,.3);color:#fbbf24" onclick="document.getElementById('zip-file-input').click()">📦 ZIP 壓縮檔</span>
+                  </label>
+                  <span style="font-size:10px;color:var(--gray2)">ZIP 內可包含多個 CSV 自動批次解析</span>
+                </div>
+              </div>
+              <div class="panel" style="background:rgba(188,207,54,.03)">
+                <div class="panel-title" style="color:var(--gray)">📥 各平台 CSV 匯出步驟</div>
+                <div style="margin-top:10px;display:flex;flex-direction:column;gap:14px;font-size:12px;color:var(--gray);line-height:1.7">
+                  <div><strong style="color:#ff4040">YouTube</strong><br/>YouTube Studio → 數據分析 → 進階模式 → 右上角「匯出」→ 選時間範圍 → 下載 ZIP（含表格資料 + 圖表資料）</div>
+                  <div><strong style="color:#69c9d0">TikTok</strong><br/>TikTok Studio → 內容 → 右上角「匯出」→ 選日期範圍 → 下載 ZIP（Content.csv 含觀看、按讚、留言、分享）</div>
+                  <div><strong style="color:#e1306c">Instagram / Facebook</strong><br/>Meta Business Suite（business.facebook.com）→ 洞察報告 → 內容 → 選 Reels → 右上角「匯出」→ 下載 CSV，取「影片觀看次數」欄位</div>
+                  <div style="color:rgba(255,255,255,.3)">Threads 目前不支援數據匯出，建議人工記錄。</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ─── Google Sheets 自動同步 ─── -->
+          <div id="entry-panel-gsheet" style="display:none">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+
+              <!-- 設定區 -->
+              <div class="panel">
+                <div class="panel-title" style="display:flex;align-items:center;gap:8px">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#34a853" stroke-width="2"/><path d="M3 9h18M3 15h18M9 3v18" stroke="#34a853" stroke-width="1.5"/></svg>
+                  Google Sheets 串接設定
+                </div>
+                <div class="panel-sub">輸入已發佈為 CSV 的 Google Sheet 網址，即可一鍵同步數據。</div>
+
+                <div style="background:rgba(52,168,83,.06);border:1px solid rgba(52,168,83,.2);border-radius:3px;padding:12px;margin-bottom:14px;font-size:11px;color:rgba(255,255,255,.6);line-height:1.8">
+                  <strong style="color:#34a853;display:block;margin-bottom:4px">📋 Sheet 欄位格式要求：</strong>
+                  A欄：IP名稱 &nbsp;｜&nbsp; B欄：平台 &nbsp;｜&nbsp; C欄：日期(YYYY-MM-DD) &nbsp;｜&nbsp; D欄：觀看數<br/>
+                  <span style="color:rgba(255,255,255,.35)">第一列為標題列（自動略過），從第二列開始填數據</span>
+                </div>
+
+                <div class="fgroup">
+                  <label>Google Sheet 公開 CSV 網址</label>
+                  <input type="text" class="fi" id="gs-url" placeholder="https://docs.google.com/spreadsheets/d/..."/>
+                </div>
+                <div style="font-size:11px;color:var(--gray);margin-bottom:14px;line-height:1.7;padding:0 2px">
+                  💡 取得方法：Google Sheet → 檔案 → 共用 → 發佈到網路 → 選「CSV」格式 → 複製連結
+                </div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <button class="btn-add" id="gs-sync-btn" onclick="syncGoogleSheet()">
+                    <span id="gs-sync-label">⟳ 立即同步</span>
+                  </button>
+                  <div id="gs-status" style="font-size:11px;color:var(--gray)"></div>
+                </div>
+
+                <!-- 上次同步資訊 -->
+                <div id="gs-last-sync" style="margin-top:14px;padding:10px 12px;background:rgba(52,168,83,.05);border:1px solid rgba(52,168,83,.12);border-radius:3px;font-size:11px;color:var(--gray);display:none">
+                  <div style="color:#34a853;font-weight:700;margin-bottom:3px">✓ 上次同步成功</div>
+                  <div>時間：<span id="gs-sync-time">—</span></div>
+                  <div>匯入：<span id="gs-sync-count" style="color:var(--white)">—</span> 筆數據</div>
+                </div>
+              </div>
+
+              <!-- 教學區 -->
+              <div class="panel" style="background:rgba(52,168,83,.03);border-color:rgba(52,168,83,.15)">
+                <div class="panel-title" style="color:#34a853">🤖 Apps Script 自動化教學</div>
+                <div class="panel-sub">設定後，客戶只需更新 Google Sheet，數據就自動進來。</div>
+
+                <div style="font-size:12px;color:var(--gray);line-height:1.8;margin-bottom:14px">
+                  <div style="margin-bottom:8px"><strong style="color:var(--white)">📐 建議 Sheet 結構（給客戶的模板）：</strong></div>
+                  <div style="background:rgba(4,25,41,.8);padding:10px 12px;border-radius:3px;font-family:monospace;font-size:11px;line-height:2;color:rgba(255,255,255,.7)">
+                    A1: IP名稱 &nbsp; B1: 平台 &nbsp; C1: 日期 &nbsp; D1: 觀看數<br/>
+                    A2: T大的理財投資筆記 &nbsp; B2: instagram &nbsp; C2: 2025-04-22 &nbsp; D2: 125000<br/>
+                    <span style="color:rgba(255,255,255,.3)">（以下繼續新增列）</span>
+                  </div>
+                </div>
+
+                <div style="margin-bottom:10px">
+                  <button class="btn-sm" onclick="showAppsScript()" style="font-size:11px;margin-bottom:10px">
+                    📋 複製 Apps Script 自動推送程式碼
+                  </button>
+                  <div id="apps-script-box" style="display:none">
+                    <div style="font-size:10px;color:var(--gray);margin-bottom:6px">貼入 Google Sheet → 擴充功能 → Apps Script：</div>
+                    <textarea class="csv-area" id="apps-script-code" style="min-height:160px;font-size:10px;line-height:1.6" readonly></textarea>
+                    <button class="btn-add" style="margin-top:6px;font-size:12px" onclick="copyAppsScript()">複製程式碼</button>
+                  </div>
+                </div>
+
+                <div style="font-size:11px;color:var(--gray2);line-height:1.7;border-top:1px solid rgba(52,168,83,.1);padding-top:12px">
+                  <strong style="color:var(--gray);display:block;margin-bottom:4px">⏰ 設定定時自動觸發：</strong>
+                  Apps Script → 觸發條件 → 新增觸發條件 → 選「時間驅動」→ 每天/每週自動執行
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ─── 已輸入數據表 (共用) ─── -->
+          <div class="panel" style="margin-top:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div>
+                <div class="panel-title" style="margin-bottom:0">已輸入數據</div>
+                <div style="font-size:11px;color:var(--gray);margin-top:2px">共 <span id="data-count">0</span> 筆 · 相同 IP + 平台 + 日期自動去重</div>
+              </div>
+              <button class="btn-sm btn-sm-red" onclick="clearAllData()">清除全部</button>
+            </div>
+            <div class="tbl-wrap">
+              <table class="dtbl">
+                <thead><tr><th>IP</th><th>平台</th><th>日期</th><th>觀看數</th><th></th></tr></thead>
+                <tbody id="entry-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ─── 匯入記錄 ─── -->
+          <div class="panel" style="margin-top:14px;background:rgba(8,41,70,.3)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div>
+                <div class="panel-title" style="margin-bottom:0;color:var(--gray)">匯入記錄</div>
+                <div style="font-size:11px;color:var(--gray2);margin-top:2px">最近 100 次匯入，避免重複上傳</div>
+              </div>
+              <button class="btn-sm" style="font-size:10px" onclick="renderImportLog()">重新整理</button>
+            </div>
+            <div id="import-log-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 影片排名 (all roles can view, editor+ can import/edit) -->
+      <div class="tab-pane" id="tab-videos">
+        <!-- 頂部控制列 -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-size:15px;font-weight:700;color:var(--white)">影片流量排名</div>
+            <div style="font-size:11px;color:var(--gray);margin-top:2px">數據來源：數據輸入頁面匯入的 CSV / ZIP</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="vrank-month-sel" class="fi" style="width:auto;font-size:12px;padding:6px 10px" onchange="renderVideoRankings()"></select>
+            <div id="vrank-edit-btn-wrap"></div>
+          </div>
+        </div>
+
+        <!-- 視角切換 -->
+        <div style="display:flex;gap:0;margin-bottom:14px;border-bottom:1px solid rgba(188,207,54,.12)">
+          <button class="vrank-view-btn active" id="vvb-all"     onclick="switchVrankView('all',this)"    >🌐 全部影片</button>
+          <button class="vrank-view-btn"         id="vvb-plat"   onclick="switchVrankView('plat',this)"  >📱 依平台</button>
+          <button class="vrank-view-btn"         id="vvb-ip"     onclick="switchVrankView('ip',this)"    >👤 依 IP</button>
+        </div>
+
+        <!-- 依平台篩選器（只在 plat 模式顯示） -->
+        <div id="vrank-plat-filter" style="display:none;margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap"></div>
+
+        <!-- 排名內容 -->
+        <div id="vrank-container"></div>
+      </div>
+
+      <!-- 總流量累積 -->
+      <div class="tab-pane" id="tab-total">
+        <!-- 達標進度 -->
+        <div class="chart-box" style="margin-bottom:14px">
+          <div class="chart-hd">
+            <div>
+              <div class="chart-title">季度達標進度</div>
+              <div class="chart-sub">目標：每個 IP 3 個月全平台累積 150 萬觀看</div>
+            </div>
+            <div id="total-quarter-sel-wrap" style="display:flex;gap:8px;align-items:center">
+              <select id="total-quarter-sel" onchange="renderTotal()" style="background:rgba(4,25,41,.8);border:1px solid rgba(188,207,54,.2);color:var(--white);font-size:11px;padding:4px 8px;border-radius:2px;outline:none"></select>
+            </div>
+          </div>
+          <div id="total-goal-bars"></div>
+        </div>
+
+        <!-- 各IP月度堆疊 -->
+        <div class="chart-box" style="margin-bottom:14px">
+          <div class="chart-hd">
+            <div>
+              <div class="chart-title">各 IP 月度流量趨勢</div>
+              <div class="chart-sub">每月累積觀看數變化</div>
+            </div>
+          </div>
+          <canvas id="total-monthly-chart" height="100"></canvas>
+        </div>
+
+        <!-- 累積總表 -->
+        <div class="chart-box">
+          <div class="chart-hd"><div class="chart-title">累積流量明細表</div></div>
+          <div id="total-table-wrap"></div>
+        </div>
+      </div>
+
+      <!-- IP 分析 -->
+      <div class="tab-pane" id="tab-ipanalysis">
+        <!-- IP 選擇器 -->
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+          <div style="font-size:15px;font-weight:700;color:var(--white);margin-right:4px">🔍 IP 分析</div>
+          <div id="ipa-ip-pills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+
+        <!-- IP 基本資訊卡 -->
+        <div id="ipa-info-card" class="chart-box" style="margin-bottom:14px"></div>
+
+        <!-- 兩張圖表並排 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+          <div class="chart-box">
+            <div class="chart-hd">
+              <div>
+                <div class="chart-title">單月影片排名曲線</div>
+                <div class="chart-sub">所選月份各影片觀看數</div>
+              </div>
+              <select id="ipa-chart-month" onchange="renderIPAnalysis()" style="background:rgba(4,25,41,.8);border:1px solid rgba(188,207,54,.2);color:var(--white);font-size:11px;padding:4px 8px;border-radius:2px;outline:none"></select>
+            </div>
+            <canvas id="ipa-vid-chart" height="160"></canvas>
+          </div>
+          <div class="chart-box">
+            <div class="chart-hd">
+              <div>
+                <div class="chart-title">與上月流量趨勢比較</div>
+                <div class="chart-sub">本月 vs 上月每日觀看數</div>
+              </div>
+            </div>
+            <canvas id="ipa-trend-chart" height="160"></canvas>
+          </div>
+        </div>
+
+        <!-- 影片明細表 -->
+        <div class="chart-box">
+          <div class="chart-hd">
+            <div><div class="chart-title">影片數據明細</div></div>
+            <select id="ipa-table-month" onchange="renderIPATable()" style="background:rgba(4,25,41,.8);border:1px solid rgba(188,207,54,.2);color:var(--white);font-size:11px;padding:4px 8px;border-radius:2px;outline:none"></select>
+          </div>
+          <div id="ipa-table-wrap"></div>
+        </div>
+      </div>
+
+      <!-- IP 管理 (editor+) -->
+      <div class="tab-pane" id="tab-ipmgmt">
+        <div id="ipmgmt-access-denied" class="access-denied" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7V12C2 16.5 6.5 20.5 12 22C17.5 20.5 22 16.5 22 12V7L12 2Z" stroke="currentColor" stroke-width="1.5"/></svg>
+          <p>您的權限為<strong style="color:var(--white)">「檢視者」</strong><br/>無法管理 IP 設定</p>
+        </div>
+        <div id="ipmgmt-content">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+            <div class="panel">
+              <div class="panel-title" id="ip-form-title">新增代操 IP</div>
+              <div class="panel-sub">填入 IP 名稱並選擇經營的平台。</div>
+              <input type="hidden" id="edit-ip-id"/>
+              <div class="fgroup">
+                <label>IP 名稱</label>
+                <input type="text" class="fi" id="ip-name-input" placeholder="例：T大的理財投資筆記"/>
+              </div>
+              <div class="fgroup">
+                <label>經營平台（可多選）</label>
+                <div class="plat-check-grid" id="ip-plat-checks"></div>
+              </div>
+              <div style="display:flex;gap:7px;margin-top:4px">
+                <button class="btn-add" onclick="saveIP()">儲存 IP</button>
+                <button class="btn-sm" id="cancel-edit-btn" onclick="cancelEditIP()" style="display:none">取消</button>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-title">IP 列表</div>
+              <div class="panel-sub">共 <span id="ip-count">0</span> 個代操 IP</div>
+              <div class="tbl-wrap">
+                <table class="dtbl">
+                  <thead><tr><th>名稱</th><th>平台</th><th>操作</th></tr></thead>
+                  <tbody id="ip-list-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 成員管理 (admin+) -->
+      <div class="tab-pane" id="tab-users">
+        <div id="users-access-denied" class="access-denied" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7V12C2 16.5 6.5 20.5 12 22C17.5 20.5 22 16.5 22 12V7L12 2Z" stroke="currentColor" stroke-width="1.5"/></svg>
+          <p>僅限<strong style="color:var(--white)">「管理者」以上</strong>可存取此頁面</p>
+        </div>
+        <div id="users-content">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+            <div class="panel">
+              <div class="panel-title">新增成員</div>
+              <div class="panel-sub">填入信箱與初始密碼，設定存取權限後新增。</div>
+              <div class="fgroup"><label>電子信箱</label><input type="email" class="fi" id="new-user-email" placeholder="user@wemediastudios.com"/></div>
+              <div class="fgroup"><label>初始密碼</label><input type="password" class="fi" id="new-user-pw" placeholder="至少 6 個字元"/></div>
+              <div class="fgroup">
+                <label>權限角色</label>
+                <select class="fi" id="new-user-role">
+                  <option value="viewer">檢視者 — 只能查看數據</option>
+                  <option value="editor">編輯者 — 可新增 IP 及輸入數據</option>
+                  <option value="admin">管理者 — 可管理成員與設定權限</option>
+                </select>
+              </div>
+              <button class="btn-add" onclick="addUser()">＋ 新增成員</button>
+            </div>
+            <div class="panel">
+              <div class="panel-title">成員列表</div>
+              <div class="panel-sub">共 <span id="user-count">0</span> 位成員（不含超級管理員）</div>
+              <div class="tbl-wrap">
+                <table class="dtbl">
+                  <thead><tr><th>信箱</th><th>權限</th><th>操作</th></tr></thead>
+                  <tbody id="user-list-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- Profile Modal -->
+<div class="modal-overlay" id="profile-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('profile-modal')">✕</button>
+    <div class="modal-title">我的帳號</div>
+    <div class="modal-sub" id="profile-modal-sub">變更登入密碼</div>
+    <div class="frow"><label>目前密碼</label><input class="fi" type="password" id="pm-cur-pw" placeholder="輸入目前密碼"/></div>
+    <div class="frow"><label>新密碼</label><input class="fi" type="password" id="pm-new-pw" placeholder="新密碼（至少 6 字元）"/></div>
+    <div class="frow"><label>確認新密碼</label><input class="fi" type="password" id="pm-cf-pw" placeholder="再次輸入新密碼"/></div>
+    <div class="err-msg" id="pm-err"></div>
+    <button class="btn-add" onclick="changeMyPW()" style="width:100%">更新密碼</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>
+// ══════════════════════════════════════════════════
+//  ⚙️  設定區 — 技術人員填入後即可部署
+//  取得方式：Supabase 後台 → Project Settings → API
+// ══════════════════════════════════════════════════
+const SUPABASE_URL = 'https://ddbpyjlljzzbohsxcule.supabase.co'
+const SUPABASE_KEY = 'sb_publishable_ccqD7FnsiOwXB0CDtJGR7g_KbzKNDQl'
+
+// ══════════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════════
+// 偵測是否已設定 Supabase（未設定則退回 localStorage 模式）
+const USE_SUPABASE = (SUPABASE_URL.includes('supabase.co') && !SUPABASE_URL.includes('YOUR_PROJECT')) &&
+  (SUPABASE_KEY.startsWith('eyJ') || SUPABASE_KEY.startsWith('sb_'));
+const sb = USE_SUPABASE ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+// localStorage fallback keys
+const SK={users:'wm_users',ips:'wm_ips',data:'wm_data',session:'wm_session'};
+
+const PLATFORMS=[
+  {id:'instagram',name:'Instagram',color:'#e1306c'},
+  {id:'youtube',  name:'YouTube',  color:'#ff4040'},
+  {id:'tiktok',   name:'TikTok',   color:'#69c9d0'},
+  {id:'facebook', name:'Facebook', color:'#6b9be8'},
+  {id:'threads',  name:'Threads',  color:'#aaaaaa'},
+];
+const ACCENTS=['#BCCF36','#38bdf8','#fb923c','#a78bfa','#f472b6','#34d399','#fbbf24'];
+const DATE_PRESETS=[{l:'7天',d:7},{l:'14天',d:14},{l:'30天',d:30},{l:'90天',d:90}];
+const SUPERADMIN='ago@wemediastudios.com';
+
+// Role levels: superadmin > admin > editor > viewer
+const ROLE_LEVEL={superadmin:4,admin:3,editor:2,viewer:1};
+const ROLE_LABEL={superadmin:'超級管理員',admin:'管理者',editor:'編輯者',viewer:'檢視者'};
+const ROLE_CLASS={superadmin:'role-superadmin',admin:'role-admin',editor:'role-editor',viewer:'role-viewer'};
+
+// ══════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════
+let S={
+  users:[],      // [{email,pwHash,role}]
+  ips:[],        // [{id,name,platforms:[]}]
+  data:[],       // [{ipId,platform,date,views}]
+  session:null,  // {email,role}
+  selIPs:[],
+  selPlats:['instagram','youtube','tiktok','facebook','threads'],
+  days:30,
+  chartType:'line',
+};
+
+// ── simple hash (for localStorage fallback only) ──
+function hashPW(pw){let h=0;for(let i=0;i<pw.length;i++){h=(Math.imul(31,h)+pw.charCodeAt(i))|0}return h.toString(36)}
+function uid(){return 'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+
+// ══════════════════════════════════════════════════
+//  STORAGE — dual mode (Supabase or localStorage)
+// ══════════════════════════════════════════════════
+async function loadAll(){
+  if(USE_SUPABASE){
+    try{
+      const {data:{session}}=await sb.auth.getSession();
+      if(session){
+        let role='viewer';
+        if(session.user.email===SUPERADMIN){
+          role='superadmin';
+        } else {
+          try{
+            const {data:profile,error:pErr}=await sb.from('user_profiles').select('role').eq('id',session.user.id).single();
+            if(!pErr&&profile?.role)role=profile.role;
+          }catch(e){console.warn('getSession profile error',e);}
+        }
+        S.session={email:session.user.email,role,uid:session.user.id};
+      }
+    }catch(e){console.warn('getSession failed:',e);}
+    try{await loadIPsFromDB();}catch(e){console.warn('loadIPs failed:',e);}
+    if(S.session){
+      try{await loadMetricsFromDB();}catch(e){console.warn('loadMetrics failed:',e);}
+      try{await loadVideosFromDB();}catch(e){console.warn('loadVideos failed:',e);}
+    }  } else {
+    // localStorage fallback
+    const u=localStorage.getItem(SK.users);
+    if(u) S.users=JSON.parse(u);
+    const sa=S.users.find(x=>x.email===SUPERADMIN);
+    if(!sa){S.users.push({email:SUPERADMIN,pwHash:hashPW('wemedia2025'),role:'superadmin'});}
+    else{sa.role='superadmin';if(!sa.pwHash||sa.pwHash.length<4)sa.pwHash=hashPW('wemedia2025');}
+    localStorage.setItem(SK.users,JSON.stringify(S.users));
+    const ips=localStorage.getItem(SK.ips);
+    if(ips) S.ips=JSON.parse(ips);
+    else{
+      S.ips=[
+        {id:'ip1',name:'T大的理財投資筆記',platforms:['instagram','youtube']},
+        {id:'ip2',name:'小貝 | 從-500開始的財商之路',platforms:['instagram','tiktok']},
+        {id:'ip3',name:'林雨暘證券分析師',platforms:['instagram','youtube','facebook','threads']},
+        {id:'ip4',name:'NY老師 開課嘍！',platforms:['instagram','threads']},
+      ];
+      localStorage.setItem(SK.ips,JSON.stringify(S.ips));
+    }
+    const d=localStorage.getItem(SK.data);
+    if(d) S.data=JSON.parse(d);
+    const sess=sessionStorage.getItem(SK.session);
+    if(sess) S.session=JSON.parse(sess);
+  }
+  S.selIPs=S.ips.map(x=>x.id);
+}
+
+async function loadIPsFromDB(){
+  if(!USE_SUPABASE){S.ips=JSON.parse(localStorage.getItem(SK.ips)||'[]');return;}
+  const {data}=await sb.from('ips').select('*').order('created_at');
+  S.ips=(data||[]).map(r=>({id:r.id,name:r.name,platforms:r.platforms||[]}));
+}
+
+async function loadMetricsFromDB(){
+  if(!USE_SUPABASE){S.data=JSON.parse(localStorage.getItem(SK.data)||'[]');return;}
+  const since=new Date();since.setDate(since.getDate()-90);
+  const {data}=await sb.from('metrics').select('ip_id,platform,date,views').gte('date',since.toISOString().slice(0,10)).order('date');
+  S.data=(data||[]).map(r=>({ipId:r.ip_id,platform:r.platform,date:r.date,views:r.views}));
+}
+
+function saveIPs(){if(!USE_SUPABASE)localStorage.setItem(SK.ips,JSON.stringify(S.ips));}
+function saveData(){if(!USE_SUPABASE)localStorage.setItem(SK.data,JSON.stringify(S.data));}
+function saveUsers(){if(!USE_SUPABASE)localStorage.setItem(SK.users,JSON.stringify(S.users));}
+
+// ══════════════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════════════
+function can(minRole){
+  if(!S.session) return false;
+  return ROLE_LEVEL[S.session.role]>=ROLE_LEVEL[minRole];
+}
+
+async function doLogin(){
+  const email=document.getElementById('login-email').value.trim().toLowerCase();
+  const pw=document.getElementById('login-pw').value;
+  const errEl=document.getElementById('login-err');
+  const btn=document.querySelector('.btn-login');
+  errEl.textContent='';
+  if(!email||!pw){errEl.textContent='請填寫信箱與密碼';return;}
+
+  btn.disabled=true;btn.textContent='登入中…';
+
+  if(USE_SUPABASE){
+    try{
+      const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+      btn.disabled=false;btn.textContent='登入工作台 →';
+      if(error){
+        if(error.message.includes('Invalid')||error.message.includes('credentials')||error.message.includes('invalid')){
+          errEl.textContent='信箱或密碼錯誤，請重新輸入';
+        } else {
+          errEl.textContent='登入失敗：'+error.message;
+        }
+        return;
+      }
+      if(!data?.user){errEl.textContent='登入失敗，請稍後再試';return;}
+      let role='viewer';
+      // Superadmin 直接給最高權限，不依賴資料庫查詢
+      if(data.user.email===SUPERADMIN){
+        role='superadmin';
+      } else {
+        try{
+          const{data:profile,error:profileErr}=await sb.from('user_profiles').select('role').eq('id',data.user.id).single();
+          if(profileErr){console.warn('profile error:',profileErr.message);}
+          else if(profile?.role){role=profile.role;}
+        }catch(e){console.warn('取得權限失敗',e);}
+      }
+      S.session={email:data.user.email,role,uid:data.user.id};
+    }catch(e){
+      btn.disabled=false;btn.textContent='登入工作台 →';
+      if(e.message&&e.message.includes('fetch')){
+        errEl.textContent='無法連線到伺服器，請確認網路後再試';
+      } else {
+        errEl.textContent='登入失敗：'+( e.message||'未知錯誤');
+      }
+      return;
+    }
+  } else {
+    await new Promise(r=>setTimeout(r,300));
+    btn.disabled=false;btn.textContent='登入工作台 →';
+    const user=S.users.find(u=>u.email===email);
+    if(!user){errEl.textContent='找不到此信箱，請聯繫管理者開通帳號';return;}
+    if(user.pwHash!==hashPW(pw)){errEl.textContent='密碼錯誤，請重新輸入';return;}
+    S.session={email:user.email,role:user.role};
+    sessionStorage.setItem(SK.session,JSON.stringify(S.session));
+  }
+
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  try{await loadIPsFromDB();}catch(e){console.warn('載入 IP 失敗',e);}
+  try{await loadMetricsFromDB();}catch(e){console.warn('載入數據失敗',e);}
+  try{await loadVideosFromDB();}catch(e){console.warn('載入影片失敗',e);}
+  S.selIPs=S.ips.map(x=>x.id);
+  initApp();
+}
+
+async function doLogout(){
+  if(USE_SUPABASE) await sb.auth.signOut();
+  else sessionStorage.removeItem(SK.session);
+  S.session=null;S.data=[];S.ips=[];S.users=[];
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('login-email').value='';
+  document.getElementById('login-pw').value='';
+  document.getElementById('login-err').textContent='';
+}
+
+// ── Supabase connection diagnostic ──
+async function testSupabaseConnection(){
+  const errEl=document.getElementById('login-err');
+  errEl.style.color='var(--lime)';
+  errEl.textContent='測試中…';
+  const steps=[];
+  try{
+    const r=await fetch(SUPABASE_URL+'/rest/v1/',{
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    });
+    steps.push('✓ 伺服器連線 ('+r.status+')');
+  }catch(e){
+    steps.push('✕ 連線失敗：'+e.message);
+    errEl.style.color='var(--red)';
+    errEl.textContent=steps.join(' | ');
+    return;
+  }
+  try{
+    const{error}=await sb.auth.signInWithPassword({email:'diag@test.com',password:'wrongpass999'});
+    if(error&&(error.message.includes('Invalid')||error.message.includes('credentials')||error.message.includes('invalid'))){
+      steps.push('✓ Auth 服務正常');
+    } else if(error){
+      steps.push('⚠ Auth：'+error.message);
+    }
+  }catch(e){
+    steps.push('✕ Auth 失敗：'+e.message);
+  }
+  errEl.style.color='var(--lime)';
+  errEl.textContent=steps.join(' · ');
+  setTimeout(()=>{errEl.textContent='';errEl.style.color='var(--red)';},6000);
+}
+
+// ── Enter key ──
+['login-email','login-pw'].forEach(id=>{
+  document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+});
+
+// Emergency reset (localStorage mode only)
+function resetSuperadmin(){
+  if(USE_SUPABASE){alert('Supabase 模式請至 Supabase 後台 Authentication 重設密碼。');return;}
+  if(!confirm('確定要將超級管理員密碼重設為預設值「wemedia2025」嗎？'))return;
+  localStorage.removeItem(SK.users);
+  S.users=[{email:SUPERADMIN,pwHash:hashPW('wemedia2025'),role:'superadmin'}];
+  localStorage.setItem(SK.users,JSON.stringify(S.users));
+  document.getElementById('login-email').value=SUPERADMIN;
+  document.getElementById('login-pw').value='';
+  document.getElementById('login-err').textContent='';
+  alert('✓ 已重設！\n信箱：ago@wemediastudios.com\n密碼：wemedia2025');
+}
+
+// ══════════════════════════════════════════════════
+//  INIT APP
+// ══════════════════════════════════════════════════
+function initApp(){
+  const {email,role}=S.session;
+  // Topbar user info
+  document.getElementById('user-email-display').textContent=email;
+  document.getElementById('user-avatar-init').textContent=email[0].toUpperCase();
+  const badge=document.getElementById('user-role-badge');
+  badge.textContent=ROLE_LABEL[role];
+  badge.className='role-badge '+ROLE_CLASS[role];
+
+  // Show/hide tabs based on role
+  const showEntry=can('editor');
+  const showAdmin=can('admin');
+  document.getElementById('tab-btn-entry').classList.toggle('hidden-tab',!showEntry);
+  document.getElementById('tab-btn-ipmgmt').classList.toggle('hidden-tab',!showEntry);
+  document.getElementById('tab-btn-users').classList.toggle('hidden-tab',!showAdmin);
+
+  renderSidebar();
+  renderOverview();
+}
+
+// ══════════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════════
+function switchTab(id,btn){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='overview')   renderOverview();
+  if(id==='entry')      renderEntryTab();
+  if(id==='ipmgmt')     renderIPMgmt();
+  if(id==='videos')     renderVideoRankings();
+  if(id==='total')      renderTotal();
+  if(id==='ipanalysis') renderIPAnalysis();
+  if(id==='users')      renderUsersTab();
+}
+
+// ══════════════════════════════════════════════════
+//  SIDEBAR
+// ══════════════════════════════════════════════════
+function renderSidebar(){
+  // IP checklist
+  document.getElementById('ip-checklist').innerHTML=S.ips.map(ip=>`
+    <div class="ip-item ${S.selIPs.includes(ip.id)?'checked':''}" onclick="toggleIP('${ip.id}')">
+      <div class="ip-cb">${S.selIPs.includes(ip.id)?'<svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5l2.5 2.5 4.5-5" stroke="#082946" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
+      <div class="ip-name">${ip.name}</div>
+    </div>`).join('');
+  // Platform filter
+  document.getElementById('plat-filter').innerHTML=PLATFORMS.map(p=>`
+    <div class="plat-pill ${S.selPlats.includes(p.id)?'active':''}"
+      style="border-color:${p.color};color:${p.color};background:${S.selPlats.includes(p.id)?p.color+'1a':'transparent'}"
+      onclick="togglePlat('${p.id}')">${p.name}</div>`).join('');
+  // Date presets
+  document.getElementById('date-btns').innerHTML=DATE_PRESETS.map(p=>`
+    <div class="date-btn ${S.days===p.d?'active':''}" onclick="setDays(${p.d})">${p.l}</div>`).join('');
+}
+
+function toggleIP(id){
+  S.selIPs=S.selIPs.includes(id)?S.selIPs.filter(x=>x!==id):[...S.selIPs,id];
+  renderSidebar();renderOverview();
+}
+function selectAllIPs(){S.selIPs=S.ips.map(x=>x.id);renderSidebar();renderOverview();}
+function togglePlat(id){
+  S.selPlats=S.selPlats.includes(id)?S.selPlats.filter(x=>x!==id):[...S.selPlats,id];
+  renderSidebar();renderOverview();
+}
+function setDays(d){S.days=d;renderSidebar();renderOverview();}
+
+// ══════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════
+function genDates(days){
+  const arr=[];
+  for(let i=days-1;i>=0;i--){const t=new Date();t.setDate(t.getDate()-i);arr.push(t.toISOString().slice(0,10))}
+  return arr;
+}
+function fmt(n){
+  if(n>=1e6)return(n/1e6).toFixed(1)+'M';
+  if(n>=10000)return(n/1000).toFixed(1)+'K';
+  return n>0?Number(n).toLocaleString():'0';
+}
+function toast(msg,isErr=false){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='toast show'+(isErr?' err':'');
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>el.classList.remove('show'),2600);
+}
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+
+// ══════════════════════════════════════════════════
+//  DATA AGGREGATION
+// ══════════════════════════════════════════════════
+function filteredData(){
+  const dates=new Set(genDates(S.days));
+  return S.data.filter(d=>S.selIPs.includes(d.ipId)&&S.selPlats.includes(d.platform)&&dates.has(d.date));
+}
+function aggByDate(){
+  const dates=genDates(S.days);
+  const fd=filteredData();
+  return dates.map(date=>{
+    const row={date:date.slice(5)};
+    S.selPlats.forEach(pid=>{row[pid]=fd.filter(d=>d.date===date&&d.platform===pid).reduce((s,d)=>s+d.views,0);});
+    row._t=S.selPlats.reduce((s,p)=>s+row[p],0);
+    return row;
+  });
+}
+
+// ══════════════════════════════════════════════════
+//  OVERVIEW
+// ══════════════════════════════════════════════════
+let mainChart=null;
+function renderOverview(){
+  const agg=aggByDate();
+  const fd=filteredData();
+  const total=fd.reduce((s,d)=>s+d.views,0);
+  const avg=Math.round(total/S.days);
+  const peak=agg.reduce((m,r)=>Math.max(m,r._t),0);
+  const dates=new Set(genDates(S.days));
+
+  // ── Stats row ──
+  document.getElementById('stat-row').innerHTML=`
+    <div class="stat-card"><div class="stat-label">總觀看數</div><div class="stat-val">${fmt(total)}</div><div class="stat-sub">${S.days} 天累計</div></div>
+    <div class="stat-card"><div class="stat-label">日均流量</div><div class="stat-val">${fmt(avg)}</div><div class="stat-sub">所選平台合計</div></div>
+    <div class="stat-card"><div class="stat-label">單日峰值</div><div class="stat-val">${fmt(peak)}</div><div class="stat-sub">最高單日合計</div></div>
+    <div class="stat-card"><div class="stat-label">監控 IP</div><div class="stat-val">${S.selIPs.length}</div><div class="stat-sub">/ ${S.ips.length} 個 IP</div></div>`;
+
+  // ── IP compare platform selector ──
+  const platSel=document.getElementById('ip-compare-plat');
+  if(platSel){
+    const curVal=platSel.value||'all';
+    platSel.innerHTML=`<option value="all">全平台合計</option>`+
+      S.selPlats.map(pid=>{const p=PLATFORMS.find(x=>x.id===pid);return`<option value="${pid}" ${curVal===pid?'selected':''}>${p.name}</option>`;}).join('');
+    if(curVal!=='all'&&!S.selPlats.includes(curVal))platSel.value='all';
+  }
+  const filterPlatId=platSel?.value||'all';
+
+  // ── IP comparison horizontal bars ──
+  const ipTotals=S.selIPs.map((ipId,idx)=>{
+    const ip=S.ips.find(x=>x.id===ipId);if(!ip)return null;
+    const tot=S.data.filter(d=>d.ipId===ipId&&(filterPlatId==='all'?S.selPlats.includes(d.platform):d.platform===filterPlatId)&&dates.has(d.date)).reduce((s,d)=>s+d.views,0);
+    return{ip,tot,col:ACCENTS[idx%ACCENTS.length]};
+  }).filter(Boolean).sort((a,b)=>b.tot-a.tot);
+
+  const maxTot=ipTotals[0]?.tot||1;
+  const barsEl=document.getElementById('ip-compare-bars');
+  if(barsEl){
+    if(ipTotals.every(x=>x.tot===0)){
+      barsEl.innerHTML=`<div style="text-align:center;padding:20px;color:var(--gray2);font-size:13px">所選時間區間內尚無數據</div>`;
+    } else {
+      barsEl.innerHTML=ipTotals.map((item,rank)=>{
+        const pct=(item.tot/maxTot*100).toFixed(1);
+        const rankBadge=rank===0?`<span style="font-size:10px;background:rgba(188,207,54,.2);color:var(--lime);padding:1px 6px;border-radius:10px;font-weight:700;margin-left:6px">🏆 最高</span>`:'';
+        return`<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(188,207,54,.05)">
+          <div style="width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--gray);flex-shrink:0">${rank+1}</div>
+          <div style="width:160px;flex-shrink:0;font-size:12px;font-weight:600;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.ip.name}${rankBadge}</div>
+          <div style="flex:1;height:8px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">
+            <div style="height:100%;border-radius:4px;background:${item.col};width:${pct}%;transition:width .6s ease;min-width:${item.tot>0?'3px':'0'}"></div>
+          </div>
+          <div style="width:64px;text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:${item.col};flex-shrink:0">${fmt(item.tot)}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // ── Trend chart ──
+  if(mainChart){mainChart.destroy();mainChart=null;}
+  const ctx=document.getElementById('main-chart').getContext('2d');
+  mainChart=new Chart(ctx,{
+    type:S.chartType,
+    data:{
+      labels:agg.map(r=>r.date),
+      datasets:S.selPlats.map(pid=>{
+        const p=PLATFORMS.find(x=>x.id===pid);
+        return{label:p.name,data:agg.map(r=>r[pid]||0),
+          borderColor:p.color,backgroundColor:p.color+'2a',
+          fill:S.chartType==='line',tension:.35,pointRadius:0,pointHoverRadius:4,borderWidth:2};
+      })
+    },
+    options:{responsive:true,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:'#8fa5b8',font:{size:11},boxWidth:11}},
+        tooltip:{backgroundColor:'rgba(4,25,41,.96)',borderColor:'rgba(188,207,54,.3)',borderWidth:1,
+          titleColor:'#BCCF36',bodyColor:'#f0f4f8',
+          callbacks:{label:c=>' '+c.dataset.label+': '+Number(c.raw).toLocaleString()}}},
+      scales:{
+        x:{ticks:{color:'#4a6378',font:{size:10}},grid:{color:'rgba(188,207,54,.05)'},border:{display:false}},
+        y:{ticks:{color:'#4a6378',font:{size:10},callback:v=>fmt(v)},grid:{color:'rgba(188,207,54,.05)'},border:{display:false}}
+      }
+    }
+  });
+
+  // ── IP cards with per-platform breakdown ──
+  const curMonth=new Date().toISOString().slice(0,7);
+  const allVids=loadVideos();
+
+  // Helper: get total views for an IP in a date range
+  function ipPeriodViews(ipId, dateSet){
+    return S.data.filter(d=>d.ipId===ipId&&dateSet.has(d.date)).reduce((s,d)=>s+d.views,0);
+  }
+
+  // Previous period: same number of days, just before the current window
+  const prevDates=new Set(genDates(S.days).map(d=>{
+    const t=new Date(d);t.setDate(t.getDate()-S.days);return t.toISOString().slice(0,10);
+  }));
+  const periodLabel=S.days===7?'上週':S.days===14?'前兩週':S.days===30?'上月':S.days===90?'上季':'前期';
+
+  document.getElementById('ip-cards').innerHTML=S.selIPs.map((ipId,idx)=>{
+    const ip=S.ips.find(x=>x.id===ipId);if(!ip)return'';
+    const ipData=S.data.filter(d=>d.ipId===ipId&&S.selPlats.includes(d.platform)&&dates.has(d.date));
+    const tot=ipData.reduce((s,d)=>s+d.views,0);
+    const col=ACCENTS[idx%ACCENTS.length];
+
+    // Growth rate vs previous same period
+    const curViews=ipPeriodViews(ipId,dates);
+    const prevViews=ipPeriodViews(ipId,prevDates);
+    let growthBadge='';
+    if(curViews>0&&prevViews>0){
+      const pct=Math.round((curViews-prevViews)/prevViews*100);
+      if(pct>0) growthBadge=`<span class="growth-up">▲ ${pct}%</span>`;
+      else if(pct<0) growthBadge=`<span class="growth-dn">▼ ${Math.abs(pct)}%</span>`;
+      else growthBadge=`<span class="growth-flat">— 持平</span>`;
+    } else if(curViews>0&&prevViews===0){
+      growthBadge=`<span class="growth-up">▲ 新資料</span>`;
+    }
+
+    // Avg views per video (current month)
+    const curMonthStr=new Date().toISOString().slice(0,7);
+    const vidCount=allVids.filter(v=>v.ipId===ipId&&v.month===curMonthStr).length;
+    const curMonthViews=S.data.filter(d=>d.ipId===ipId&&d.date.startsWith(curMonthStr)).reduce((s,d)=>s+d.views,0);
+    const avgPerVid=vidCount>0?Math.round(curMonthViews/vidCount):0;
+    const vidBadge=vidCount>0
+      ?`<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;background:rgba(188,207,54,.1);border:1px solid rgba(188,207,54,.25);font-size:10px;font-weight:700;color:var(--lime)">📹 本月 ${vidCount} 支${avgPerVid>0?` · 均 ${fmt(avgPerVid)}`:''}</div>`
+      :`<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:10px;color:var(--gray2)">📹 本月 0 支</div>`;
+
+    // Per-platform totals for this IP
+    const platRows=ip.platforms.filter(pid=>S.selPlats.includes(pid)).map(pid=>{
+      const p=PLATFORMS.find(x=>x.id===pid);
+      const v=ipData.filter(d=>d.platform===pid).reduce((s,d)=>s+d.views,0);
+      const pct=tot>0?(v/tot*100).toFixed(0):0;
+      return{p,v,pct};
+    }).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
+
+    const platBreakdown=platRows.length>0?`
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
+        ${platRows.map(({p,v,pct})=>`
+          <div style="display:flex;align-items:center;gap:7px">
+            <span style="font-size:10px;font-weight:700;color:${p.color};width:62px;flex-shrink:0">${p.name}</span>
+            <div style="flex:1;height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden">
+              <div style="height:100%;border-radius:2px;background:${p.color};width:${pct}%"></div>
+            </div>
+            <span style="font-family:'Barlow Condensed',sans-serif;font-size:13px;color:${p.color};width:44px;text-align:right;flex-shrink:0">${fmt(v)}</span>
+            <span style="font-size:10px;color:var(--gray2);width:28px;text-align:right;flex-shrink:0">${pct}%</span>
+          </div>`).join('')}
+      </div>`:'';
+
+    // Last update badge
+    const allIpData=S.data.filter(d=>d.ipId===ipId);
+    const lastDate=allIpData.length>0?allIpData.reduce((m,d)=>d.date>m?d.date:m,''):null;
+    let staleBadge='';
+    if(!lastDate){
+      staleBadge=`<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);font-size:10px;font-weight:700;color:var(--red)"><span style="width:5px;height:5px;border-radius:50%;background:var(--red);display:inline-block"></span>尚無數據</div>`;
+    } else {
+      const daysSince=Math.floor((new Date()-new Date(lastDate))/(1000*60*60*24));
+      const [,m,d]=lastDate.split('-');
+      // 如果是月份第一天，代表是月份匯總數據，顯示「XX月」而不是「XX/01」
+      const isMonthlyData=d==='01';
+      const dd=isMonthlyData?`${parseInt(m)}月`:`${m}/${d}`;
+      const dayLabel=isMonthlyData?'':` · ${daysSince}天前`;
+      if(isMonthlyData||daysSince<=3)
+        staleBadge=`<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25);font-size:10px;font-weight:700;color:#4ade80"><span style="width:5px;height:5px;border-radius:50%;background:#4ade80;display:inline-block;animation:blink 2s infinite"></span>更新至 ${dd}</div>`;
+      else if(daysSince<=7)
+        staleBadge=`<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.25);font-size:10px;font-weight:700;color:#fbbf24"><span style="width:5px;height:5px;border-radius:50%;background:#fbbf24;display:inline-block"></span>更新至 ${dd}${dayLabel}</div>`;
+      else
+        staleBadge=`<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);font-size:10px;font-weight:700;color:var(--red)"><span style="width:5px;height:5px;border-radius:50%;background:var(--red);display:inline-block"></span>最後更新 ${dd} · 已${daysSince}天</div>`;
+    }
+
+    return`<div class="ip-card" style="border-left-color:${col}">
+      <div class="ip-card-hd">
+        <div>
+          <div class="ip-card-name">${ip.name}</div>
+          ${growthBadge?`<div style="margin-top:2px">${growthBadge} <span style="font-size:10px;color:var(--gray2)">較${periodLabel}</span></div>`:''}
+        </div>
+        <div class="ip-card-total" style="color:${col}">${fmt(tot)}</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:4px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="font-size:10px;color:var(--gray)">過去 ${S.days} 天</div>
+          ${vidBadge}
+        </div>
+        ${staleBadge}
+      </div>
+      ${platBreakdown}
+    </div>`;
+  }).join('');
+}
+function setChartType(t,btn){
+  S.chartType=t;
+  document.querySelectorAll('.ct-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');renderOverview();
+}
+
+// ══════════════════════════════════════════════════
+//  COMPARE
+// ══════════════════════════════════════════════════
+let pieChart=null;
+function renderCompare(){
+  const fd=filteredData();
+  const pieData=S.selPlats.map(pid=>{
+    const p=PLATFORMS.find(x=>x.id===pid);
+    return{name:p.name,color:p.color,total:fd.filter(d=>d.platform===pid).reduce((s,d)=>s+d.views,0)};
+  }).filter(x=>x.total>0);
+  const grand=pieData.reduce((s,x)=>s+x.total,0);
+
+  if(pieChart){pieChart.destroy();pieChart=null;}
+  if(pieData.length>0){
+    pieChart=new Chart(document.getElementById('pie-chart').getContext('2d'),{
+      type:'doughnut',
+      data:{labels:pieData.map(x=>x.name),datasets:[{data:pieData.map(x=>x.total),
+        backgroundColor:pieData.map(x=>x.color),borderColor:'rgba(4,25,41,.8)',borderWidth:2,hoverOffset:6}]},
+      options:{plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(4,25,41,.96)',
+        borderColor:'rgba(188,207,54,.3)',borderWidth:1,titleColor:'#BCCF36',bodyColor:'#f0f4f8',
+        callbacks:{label:c=>' '+Number(c.raw).toLocaleString()}}},cutout:'58%'}
+    });
+  }
+
+  const sorted=[...pieData].sort((a,b)=>b.total-a.total);
+  const max=sorted[0]?.total||1;
+  document.getElementById('plat-bar-list').innerHTML=sorted.map(p=>`
+    <div style="margin-bottom:11px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span style="color:${p.color};font-weight:600">${p.name}</span>
+        <span style="color:var(--gray);font-family:'Barlow Condensed',sans-serif">${fmt(p.total)}</span>
+      </div>
+      <div style="height:5px;background:rgba(255,255,255,.04);border-radius:3px">
+        <div style="height:100%;border-radius:3px;background:${p.color};width:${(p.total/max*100).toFixed(1)}%"></div>
+      </div>
+      <div style="font-size:10px;color:var(--gray2);margin-top:2px">${grand>0?(p.total/grand*100).toFixed(1):'0'}%</div>
+    </div>`).join('');
+
+  const hPlats=S.selPlats.filter(pid=>fd.some(d=>d.platform===pid));
+  document.getElementById('compare-table').innerHTML=`
+    <thead><tr><th>IP 名稱</th>${hPlats.map(pid=>{const p=PLATFORMS.find(x=>x.id===pid);return`<th style="color:${p.color}">${p.name}</th>`}).join('')}<th>合計</th></tr></thead>
+    <tbody>${S.selIPs.map(ipId=>{
+      const ip=S.ips.find(x=>x.id===ipId);if(!ip)return'';
+      const cols=hPlats.map(pid=>{const v=fd.filter(d=>d.ipId===ipId&&d.platform===pid).reduce((s,d)=>s+d.views,0);const p=PLATFORMS.find(x=>x.id===pid);return`<td style="color:${v>0?p.color:'var(--gray2)'};font-family:'Barlow Condensed',sans-serif;font-size:14px">${v>0?fmt(v):'—'}</td>`;}).join('');
+      const tot=fd.filter(d=>d.ipId===ipId).reduce((s,d)=>s+d.views,0);
+      return`<tr><td style="font-weight:600;color:var(--white)">${ip.name}</td>${cols}<td style="color:var(--lime);font-weight:700;font-family:'Barlow Condensed',sans-serif;font-size:14px">${fmt(tot)}</td></tr>`;
+    }).join('')}</tbody>`;
+}
+
+// ══════════════════════════════════════════════════
+//  DATA ENTRY
+// ══════════════════════════════════════════════════
+function renderImportLog(){
+  const log=loadImportLog();
+  const el=document.getElementById('import-log-list');
+  if(!el)return;
+  if(!log.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--gray2);padding:10px 0;text-align:center">尚無匯入記錄</div>';
+    return;
+  }
+  el.innerHTML=`<div class="tbl-wrap"><table class="dtbl">
+    <thead><tr><th>匯入時間</th><th>檔案</th><th>IP</th><th>平台</th><th>資料範圍</th><th>筆數</th></tr></thead>
+    <tbody>${log.map(e=>{
+      const ip=S.ips.find(x=>x.id===e.ipId);
+      const plat=PLATFORMS.find(p=>p.id===e.platform);
+      const detail=[];
+      if(e.metrics)detail.push(`${e.metrics}筆流量`);
+      if(e.vids)detail.push(`${e.vids}支影片`);
+      return`<tr>
+        <td style="color:var(--gray2);white-space:nowrap">${e.importedAt}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.filename}">${e.filename}</td>
+        <td style="color:var(--white)">${ip?ip.name:e.ipId}</td>
+        <td style="color:${plat?plat.color:'var(--gray)'}">${plat?plat.name:e.platform}</td>
+        <td style="color:var(--gray2);font-size:10px">${e.dateRange||'—'}</td>
+        <td style="color:var(--lime);font-family:'Barlow Condensed',sans-serif;font-size:14px">${detail.join(' + ')||e.rowCount}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
+function renderEntryTab(){
+  const ok=can('editor');
+  document.getElementById('entry-access-denied').style.display=ok?'none':'flex';
+  document.getElementById('entry-content').style.display=ok?'block':'none';
+  if(!ok)return;
+  // Populate selects
+  document.getElementById('de-ip').innerHTML=S.ips.map(ip=>`<option value="${ip.id}">${ip.name}</option>`).join('');
+  document.getElementById('de-plat').innerHTML=PLATFORMS.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  if(!document.getElementById('de-date').value)
+    document.getElementById('de-date').value=new Date().toISOString().slice(0,10);
+  renderEntryTable();
+  renderImportLog();
+  // Restore saved GSheet URL if any
+  const savedUrl=localStorage.getItem('wm_gs_url')||'';
+  if(savedUrl)document.getElementById('gs-url').value=savedUrl;
+  // Show last sync info
+  const lastSync=localStorage.getItem('wm_gs_last');
+  if(lastSync){
+    const info=JSON.parse(lastSync);
+    document.getElementById('gs-last-sync').style.display='block';
+    document.getElementById('gs-sync-time').textContent=info.time;
+    document.getElementById('gs-sync-count').textContent=info.count;
+  }
+}
+
+// ── Entry Method Tabs ──
+function switchEntryMethod(method,btn){
+  document.querySelectorAll('.entry-method-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['manual','csv','gsheet'].forEach(m=>{
+    const el=document.getElementById('entry-panel-'+m);
+    if(el)el.style.display=m===method?'block':'none';
+  });
+}
+
+// ── File upload helper ──
+async function loadCSVFile(input){
+  const file=input.files[0];if(!file)return;
+  const text=await file.text();
+  const firstRows=parseCSVText(text);
+  if(firstRows.length>0&&isMetaInsightsCsv(firstRows[0])){
+    showMetaImportModal(text);
+    input.value='';
+    return;
+  }
+  // Standard format — fill textarea
+  document.getElementById('csv-input').value=text;
+  toast('✓ 檔案已載入，請確認後點擊匯入');
+  input.value='';
+}
+
+// ── Google Sheets Sync ──
+async function syncGoogleSheet(){
+  const url=document.getElementById('gs-url').value.trim();
+  if(!url){toast('⚠ 請填入 Google Sheet CSV 網址',true);return;}
+
+  // Validate it looks like a sheets URL
+  if(!url.includes('docs.google.com')&&!url.includes('output=csv')){
+    toast('⚠ 請確認網址格式正確（需為 CSV 發佈連結）',true);return;
+  }
+
+  localStorage.setItem('wm_gs_url',url);
+
+  const btn=document.getElementById('gs-sync-btn');
+  const label=document.getElementById('gs-sync-label');
+  const status=document.getElementById('gs-status');
+  btn.disabled=true;
+  label.textContent='同步中…';
+  status.textContent='';
+
+  try{
+    // Use a CORS proxy for Google Sheets public CSV
+    const proxyUrl='https://corsproxy.io/?'+encodeURIComponent(url);
+    const res=await fetch(proxyUrl);
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const text=await res.text();
+    const lines=text.trim().split('\n').filter(l=>l.trim());
+    let ok=0,err=0;
+    // Skip header row if first cell looks like text (not a number)
+    const startIdx=isNaN(lines[0]?.split(',')[3])&&lines[0]?.toLowerCase().includes('ip')?1:0;
+    lines.slice(startIdx).forEach(line=>{
+      const parts=line.split(',').map(x=>x.replace(/^"|"$/g,'').trim());
+      if(parts.length<4){err++;return;}
+      const[ipName,platform,date,vs]=parts;
+      const ip=S.ips.find(x=>x.name===ipName||x.id===ipName);
+      const views=parseInt(vs,10);
+      const plat=PLATFORMS.find(p=>p.id===platform?.toLowerCase()||p.name.toLowerCase()===platform?.toLowerCase());
+      if(!ip||isNaN(views)||!plat||!date.match(/^\d{4}-\d{2}-\d{2}$/)){err++;return;}
+      S.data=S.data.filter(d=>!(d.ipId===ip.id&&d.platform===plat.id&&d.date===date));
+      S.data.push({ipId:ip.id,platform:plat.id,date,views});
+      ok++;
+    });
+    saveData();renderEntryTable();
+    const now=new Date().toLocaleString('zh-TW');
+    localStorage.setItem('wm_gs_last',JSON.stringify({time:now,count:ok}));
+    document.getElementById('gs-last-sync').style.display='block';
+    document.getElementById('gs-sync-time').textContent=now;
+    document.getElementById('gs-sync-count').textContent=ok;
+    status.style.color='var(--green)';
+    status.textContent=`✓ 成功匯入 ${ok} 筆${err>0?' · '+err+' 筆略過':''}`;
+    toast(`✓ Google Sheet 同步完成：${ok} 筆`,false);
+  }catch(e){
+    status.style.color='var(--red)';
+    status.textContent='✕ 連線失敗，請確認網址或網路狀態';
+    toast('✕ 同步失敗：'+e.message,true);
+  }finally{
+    btn.disabled=false;label.textContent='⟳ 立即同步';
+  }
+}
+
+// ── Apps Script Generator ──
+function showAppsScript(){
+  const box=document.getElementById('apps-script-box');
+  const isHidden=box.style.display==='none';
+  box.style.display=isHidden?'block':'none';
+  if(!isHidden)return;
+  const dashUrl=window.location.href;
+  const code=`// ════════════════════════════════════════════
+// WEMEDIA 數據儀表板 - 自動同步 Apps Script
+// 使用方法：
+//   1. 在 Google Sheet 點選「擴充功能」→「Apps Script」
+//   2. 貼上此程式碼後儲存
+//   3. 設定觸發條件：每天/每週自動執行
+// ════════════════════════════════════════════
+
+function syncToWemedia() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const data = sheet.getDataRange().getValues();
+  
+  // 略過第一列標題
+  const rows = data.slice(1);
+  
+  // 驗證資料格式
+  const validRows = rows.filter(row => {
+    return row[0] && row[1] && row[2] && !isNaN(row[3]);
+  });
+  
+  // 格式化為 CSV 字串
+  const csv = validRows.map(row => {
+    const ipName = row[0];
+    const platform = row[1].toString().toLowerCase();
+    const date = Utilities.formatDate(
+      new Date(row[2]), 
+      Session.getScriptTimeZone(), 
+      'yyyy-MM-dd'
+    );
+    const views = parseInt(row[3]);
+    return \`\${ipName},\${platform},\${date},\${views}\`;
+  }).join('\\n');
+  
+  Logger.log('準備同步 ' + validRows.length + ' 筆數據');
+  Logger.log(csv);
+  
+  // 可選：發送 Email 通知
+  // const email = 'ago@wemediastudios.com';
+  // GmailApp.sendEmail(email, 'WEMEDIA 數據更新', 
+  //   '本週數據已更新，共 ' + validRows.length + ' 筆。\\n\\n' + csv);
+}
+
+// 測試用：直接執行此函式來檢查輸出
+function testSync() {
+  syncToWemedia();
+}`;
+  document.getElementById('apps-script-code').value=code;
+}
+function copyAppsScript(){
+  const code=document.getElementById('apps-script-code').value;
+  navigator.clipboard.writeText(code).then(()=>toast('✓ 程式碼已複製到剪貼簿')).catch(()=>{
+    document.getElementById('apps-script-code').select();
+    document.execCommand('copy');
+    toast('✓ 已複製');
+  });
+}
+async function addEntry(){
+  const ipId=document.getElementById('de-ip').value;
+  const platform=document.getElementById('de-plat').value;
+  const date=document.getElementById('de-date').value;
+  const views=parseInt(document.getElementById('de-views').value,10);
+  if(!ipId||!platform||!date||isNaN(views)||views<0){toast('⚠ 請填寫所有欄位',true);return;}
+  if(USE_SUPABASE){
+    const{error}=await sb.from('metrics').upsert(
+      {ip_id:ipId,platform,date,views,created_by:S.session.uid},
+      {onConflict:'ip_id,platform,date'}
+    );
+    if(error){toast('✕ 儲存失敗：'+error.message,true);return;}
+    await loadMetricsFromDB();
+  } else {
+    S.data=S.data.filter(d=>!(d.ipId===ipId&&d.platform===platform&&d.date===date));
+    S.data.push({ipId,platform,date,views});
+    saveData();
+  }
+  document.getElementById('de-views').value='';
+  renderEntryTable();renderOverview();
+  toast('✓ 數據已儲存');
+}
+// ── Robust CSV parser: handles commas in quotes, tabs, full-width commas,
+//    thousand-separator commas, BOM, CRLF, and messy platform exports ──
+function parseCSVText(text){
+  // Normalise line endings, strip BOM
+  text=text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  const rows=[];
+  // Detect delimiter: tab > semicolon > comma
+  const sample=text.slice(0,500);
+  const delim=sample.includes('\t')?'\t':sample.includes(';')?';':',';
+
+  text.split('\n').forEach(line=>{
+    line=line.trim();
+    if(!line)return;
+    // Full-width comma normalise
+    line=line.replace(/，/g,',');
+    if(delim===','){
+      // Respect quoted fields
+      const cols=[];let cur='',inQ=false;
+      for(let i=0;i<line.length;i++){
+        const c=line[i];
+        if(c==='"'){inQ=!inQ;}
+        else if(c===','&&!inQ){cols.push(cur.trim());cur='';}
+        else cur+=c;
+      }
+      cols.push(cur.trim());
+      rows.push(cols);
+    } else {
+      rows.push(line.split(delim).map(c=>c.replace(/^"|"$/g,'').trim()));
+    }
+  });
+  return rows;
+}
+
+// Strip thousand separators and parse int
+function parseViews(s){
+  if(!s)return NaN;
+  // Remove thousand-sep commas that appear INSIDE a number: 1,234,567 → 1234567
+  s=String(s).replace(/(\d),(\d)/g,'$1$2').replace(/[^0-9]/g,'');
+  return parseInt(s,10);
+}
+
+// Try to match ip name flexibly
+function matchIP(name){
+  name=name?.trim();
+  if(!name)return null;
+  return S.ips.find(x=>
+    x.name===name||x.id===name||
+    x.name.includes(name)||name.includes(x.name)||
+    x.name.replace(/\s/g,'')===name.replace(/\s/g,'')
+  )||null;
+}
+
+// Try to match platform name
+function matchPlat(name){
+  name=name?.trim().toLowerCase();
+  if(!name)return null;
+  return PLATFORMS.find(p=>
+    p.id===name||p.name.toLowerCase()===name||
+    name.includes(p.id)||p.id.includes(name)
+  )||null;
+}
+
+// Convert various date formats to YYYY-MM-DD
+function normaliseDate(s){
+  if(!s)return null;
+  s=s.trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+  const m1=s.match(/^(\d{4})[/.](\d{1,2})[/.](\d{1,2})$/);
+  if(m1)return`${m1[1]}-${m1[2].padStart(2,'0')}-${m1[3].padStart(2,'0')}`;
+  const m2=s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if(m2)return`${m2[3]}-${m2[1].padStart(2,'0')}-${m2[2].padStart(2,'0')}`;
+  const d=new Date(s);
+  if(!isNaN(d.getTime()))return d.toISOString().slice(0,10);
+  return null;
+}
+
+// Parse Chinese TikTok date like "3月20日" given a reference year
+// e.g. "4月15日", year=2026 → "2026-04-15"
+function parseTikTokDate(s, year){
+  if(!s||!year)return null;
+  s=s.trim();
+  const m=s.match(/^(\d{1,2})月(\d{1,2})日$/);
+  if(!m)return null;
+  return`${year}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+}
+
+// Detect TikTok Content.csv format:
+// Header: Time, Video title, Video link, Post time, Total likes, Total comments, Total shares, Total views
+function isTikTokContentCsv(headers){
+  const h=headers.map(x=>(x||'').trim().toLowerCase());
+  return h.includes('video title')&&h.includes('total views')&&h.includes('total likes');
+}
+
+// Parse TikTok Content.csv → [{title, views, likes, comments, shares, publishDate}]
+function parseTikTokContentCsv(text, year){
+  const rows=parseCSVText(text);
+  if(rows.length<2)return{vids:[],err:'CSV 內容為空'};
+  const headers=rows[0];
+  if(!isTikTokContentCsv(headers))return{vids:[],err:null};
+
+  const fi=(names)=>{
+    const h=headers.map(x=>(x||'').trim().toLowerCase());
+    for(const n of names){const i=h.indexOf(n.toLowerCase());if(i>=0)return i;}
+    return -1;
+  };
+  const tIdx=fi(['video title']);
+  const vIdx=fi(['total views']);
+  const lIdx=fi(['total likes']);
+  const cIdx=fi(['total comments']);
+  const sIdx=fi(['total shares']);
+  const dIdx=fi(['post time']);
+
+  if(tIdx<0||vIdx<0)return{vids:[],err:'找不到必要欄位'};
+
+  const vids=[];
+  rows.slice(1).forEach(cols=>{
+    const title=(cols[tIdx]||'').trim();
+    if(!title)return;
+    const views=parseViews(cols[vIdx]);
+    if(isNaN(views)||views<0)return;
+    const likes=lIdx>=0?parseViews(cols[lIdx]):null;
+    const comments=cIdx>=0?parseViews(cols[cIdx]):null;
+    const shares=sIdx>=0?parseViews(cols[sIdx]):null;
+    // Post time: Chinese date like "4月17日" → need year from filename
+    const rawDate=dIdx>=0?(cols[dIdx]||'').trim():'';
+    const publishDate=rawDate?parseTikTokDate(rawDate,year)||normaliseDate(rawDate):null;
+    vids.push({title,views,likes:isNaN(likes)?null:likes,comments:isNaN(comments)?null:comments,shares:isNaN(shares)?null:shares,reposts:null,publishDate});
+  });
+  return{vids,err:vids.length===0?'沒有解析到任何影片':null};
+}
+
+// Detect Meta Business Suite IG/FB Reels CSV
+// Header: 貼文編號,帳號編號,帳號用戶名稱,帳號名稱,說明,時間長度（秒）,發佈時間,...,瀏覽次數,...
+function isMetaReelsCsv(headers){
+  const h=headers.map(x=>(x||'').trim());
+  return h.includes('貼文編號')&&h.includes('瀏覽次數')&&h.includes('說明');
+}
+
+// Parse Meta Business Suite Reels CSV
+// → [{title, views, likes, comments, shares, saves, publishDate, month}]
+function parseMetaReelsCsv(text){
+  const rows=parseCSVText(text);
+  if(rows.length<2)return{vids:[],err:'CSV 內容為空'};
+  const headers=rows[0].map(x=>(x||'').trim());
+  if(!isMetaReelsCsv(headers))return{vids:[],err:null};
+
+  const fi=name=>headers.findIndex(h=>h===name);
+  const tIdx=fi('說明');
+  const vIdx=fi('瀏覽次數');
+  const lIdx=fi('按讚數');
+  const cIdx=fi('留言數');
+  const sIdx=fi('分享');
+  const saveIdx=fi('儲存次數');
+  const dIdx=fi('發佈時間');
+  const dateTypeIdx=fi('日期'); // 值是「總期間」or 日期字串
+
+  if(tIdx<0||vIdx<0)return{vids:[],err:'找不到必要欄位（說明/瀏覽次數）'};
+
+  const vids=[];
+  rows.slice(1).forEach(cols=>{
+    // 只取「總期間」那列（每支影片有多列不同時段，總期間是累積值）
+    const dateType=(cols[dateTypeIdx]||'').trim();
+    if(dateType!=='總期間'&&dateType!=='')return; // 若無日期類型欄位則全取
+    const title=(cols[tIdx]||'').trim();
+    if(!title)return;
+    const views=parseViews(cols[vIdx]);
+    if(isNaN(views)||views<0)return;
+    const likes=lIdx>=0?parseViews(cols[lIdx]):null;
+    const comments=cIdx>=0?parseViews(cols[cIdx]):null;
+    const shares=sIdx>=0?parseViews(cols[sIdx]):null;
+    const saves=saveIdx>=0?parseViews(cols[saveIdx]):null;
+    // Parse date: "03/15/2026 05:05" → "2026-03-15"
+    let publishDate=null;
+    if(dIdx>=0){
+      const raw=(cols[dIdx]||'').trim();
+      const m=raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if(m)publishDate=`${m[3]}-${m[1]}-${m[2]}`;
+    }
+    vids.push({title,views,likes:isNaN(likes)?null:likes,comments:isNaN(comments)?null:comments,shares:isNaN(shares)?null:shares,reposts:isNaN(saves)?null:saves,publishDate});
+  });
+  return{vids,err:vids.length===0?'沒有解析到任何影片':null};
+}
+
+// Detect TikTok Overview.csv format:
+// Header: Date, Video Views, Profile Views, Likes, Comments, Shares
+function isTikTokOverviewCsv(headers){
+  const h=headers.map(x=>(x||'').trim().toLowerCase());
+  return h.includes('date')&&h.includes('video views')&&h.includes('profile views');
+}
+
+// Parse TikTok Overview.csv → [{date, views}]
+function parseTikTokOverviewCsv(text, year){
+  const rows=parseCSVText(text);
+  if(rows.length<2)return{dailyRows:[],err:'CSV 內容為空'};
+  const headers=rows[0];
+  if(!isTikTokOverviewCsv(headers))return{dailyRows:[],err:null}; // not this format
+  const dIdx=headers.findIndex(h=>(h||'').trim().toLowerCase()==='date');
+  const vIdx=headers.findIndex(h=>(h||'').trim().toLowerCase()==='video views');
+  if(dIdx<0||vIdx<0)return{dailyRows:[],err:'找不到 Date 或 Video Views 欄位'};
+  const dailyRows=[];
+  rows.slice(1).forEach(cols=>{
+    const rawDate=(cols[dIdx]||'').trim();
+    const views=parseViews(cols[vIdx]);
+    if(!rawDate||isNaN(views))return;
+    // Try Chinese date format first, then fallback
+    const date=parseTikTokDate(rawDate,year)||normaliseDate(rawDate);
+    if(date)dailyRows.push({date,views});
+  });
+  return{dailyRows,err:dailyRows.length===0?'沒有解析到任何日期數據':null};
+}
+
+// Extract year from TikTok ZIP filename: Overview_2026-03-20_..._accountname.zip
+// ── Extract info from ZIP filenames ──
+// YouTube: 圖表資料_2026-03-24_2026-04-21_林雨暘證券分析師.zip (no such pattern; YouTube Studio doesn't zip)
+// IG/YouTube shared: 內容_2026-03-24_2026-04-21_林雨暘證券分析師__2_.zip
+// TikTok: Overview_2026-03-20_1776659078_bei_minus2million.zip
+function extractZipMeta(filename){
+  const base=filename.replace(/\.(zip)$/i,'');
+  // Extract year from date pattern
+  const dateM=base.match(/(\d{4})-(\d{2})-(\d{2})/);
+  const year=dateM?parseInt(dateM[1],10):new Date().getFullYear();
+  // Extract date range if two dates present: startDate_endDate
+  const allDates=base.match(/\d{4}-\d{2}-\d{2}/g)||[];
+  const startDate=allDates[0]||null;
+  const endDate=allDates[1]||allDates[0]||null;
+
+  // Detect platform from filename keywords
+  let platform=null;
+  const lower=base.toLowerCase();
+  if(lower.includes('overview'))platform='tiktok';
+  else if(lower.includes('content')&&!lower.includes('內容'))platform='tiktok';
+  else if(lower.includes('instagram')||lower.includes('ig_'))platform='instagram';
+  else if(lower.includes('facebook')||lower.includes('fb_'))platform='facebook';
+  // else unknown — will be detected from CSV content
+
+  // Extract IP name hint: everything after the last date + numerics
+  const parts=base.split('_');
+  // Skip parts that are: dates (YYYY-MM-DD), numbers only, known prefix words, empty
+  const skipWords=new Set(['overview','content','export','data','report','chart','table','summary','內容','總計','圖表','表格','analytics']);
+  const ipParts=parts.filter(p=>{
+    if(!p||p.length<2)return false;
+    if(/^\d+$/.test(p))return false; // pure numbers
+    if(/^\d{4}-\d{2}-\d{2}$/.test(p))return false; // date
+    if(skipWords.has(p.toLowerCase()))return false;
+    return true;
+  });
+  const ipHint=ipParts.join(' ').trim();
+
+  return{year,startDate,endDate,platform,ipHint};
+}
+
+// ── Import log: track what's been imported to avoid re-importing ──
+const ILK='wm_import_log'; // [{id,filename,ipId,platform,importedAt,rowCount,dateRange}]
+function loadImportLog(){const d=localStorage.getItem(ILK);return d?JSON.parse(d):[];}
+function saveImportLog(log){localStorage.setItem(ILK,JSON.stringify(log));}
+function addImportLogEntry(entry){
+  const log=loadImportLog();
+  // Keep last 100 entries
+  log.unshift({...entry,id:'l'+Date.now().toString(36),importedAt:new Date().toLocaleString('zh-TW')});
+  saveImportLog(log.slice(0,100));
+}
+function isAlreadyImported(filename,ipId,platform){
+  return loadImportLog().some(e=>e.filename===filename&&e.ipId===ipId&&e.platform===platform);
+}
+
+// Universal ZIP handler — detects format, shows confirmation modal
+async function loadZipFile(input){
+  const file=input.files[0];if(!file)return;
+  if(typeof JSZip==='undefined'){toast('⚠ JSZip 未載入，請重新整理頁面',true);return;}
+
+  const meta=extractZipMeta(file.name);
+  toast('📦 解壓縮中…');
+
+  let zip;
+  try{zip=await JSZip.loadAsync(file);}
+  catch(e){toast('✕ ZIP 讀取失敗：'+e.message,true);input.value='';return;}
+
+  const csvFiles=Object.values(zip.files).filter(f=>!f.dir&&/\.(csv|txt)$/i.test(f.name));
+  if(!csvFiles.length){toast('⚠ ZIP 內找不到 CSV 檔案',true);input.value='';return;}
+
+  // Read all file contents + detect types
+  const fileContents=[];
+  let hasTikTokOverview=false;
+  let hasYoutubeStyle=false; // 表格資料/圖表資料/總計 style
+
+  for(const f of csvFiles){
+    const text=await f.async('string');
+    const rows=parseCSVText(text);
+    const headers=rows[0]||[];
+    const fname=f.name.replace(/.*\//,''); // strip subfolder
+    let detectedType=null;
+
+    if(isTikTokContentCsv(headers)){detectedType='tiktok_content';}
+    else if(isMetaReelsCsv(headers)){detectedType='meta_reels';}
+    else if(isTikTokOverviewCsv(headers)){hasTikTokOverview=true;detectedType='tiktok_overview';}
+    else if(isMetaInsightsCsv(headers)){detectedType='meta_insights';}
+    else if(fname==='表格資料.csv'||fname==='表格資料.CSV')detectedType='yt_table';
+    else if(fname==='圖表資料.csv'||fname==='圖表資料.CSV')detectedType='yt_chart';
+    else if(fname==='總計.csv'||fname==='總計.CSV')detectedType='yt_summary';
+
+    fileContents.push({name:fname,text,headers,detectedType});
+  }
+
+  const hasYTFiles=fileContents.some(f=>['yt_table','yt_chart','yt_summary'].includes(f.detectedType));
+
+  // Show unified confirmation modal
+  showZipImportModal({
+    fileContents, meta, zipFilename:file.name,
+    hasTikTokOverview, hasYTFiles,
+  });
+  input.value='';
+}
+
+// ── Unified ZIP import confirmation modal ──
+let _zipImportData=null;
+
+function showZipImportModal({fileContents, meta, zipFilename, hasTikTokOverview, hasYTFiles}){
+  _zipImportData={fileContents,meta,zipFilename};
+  const ex=document.getElementById('zip-import-modal');if(ex)ex.remove();
+
+  // Auto-match IP
+  const guessedIP=meta.ipHint?S.ips.find(x=>{
+    const hint=meta.ipHint.toLowerCase().replace(/\s/g,'');
+    const name=x.name.toLowerCase().replace(/\s/g,'');
+    return name.includes(hint.slice(0,6))||hint.includes(name.slice(0,6))||
+           name.split('').filter(c=>hint.includes(c)).length/name.length>0.6;
+  }):null;
+
+  const ipOpts=S.ips.map(ip=>`<option value="${ip.id}" ${ip===guessedIP?'selected':''}>${ip.name}</option>`).join('');
+
+  // Detect what we'll do with each file
+  const fileList=fileContents.map(f=>{
+    let action='';
+    if(f.detectedType==='tiktok_content')action='→ 影片排名（含按讚/留言/分享）';
+    else if(f.detectedType==='meta_insights')action='→ 影片排名 IG/FB（含互動數據）';
+    else if(f.detectedType==='meta_reels')action='→ 影片排名 IG/FB（含按讚/留言/分享/儲存）';
+    else if(f.detectedType==='tiktok_overview')action='→ 每日流量（總覽圖表）';
+    else if(f.detectedType==='yt_table')action='→ 影片排名';
+    else if(f.detectedType==='yt_chart')action='→ 每日流量（總覽圖表）';
+    else if(f.detectedType==='yt_summary')action='→ 略過（與圖表資料重複）';
+    else action='→ 待識別';
+    const color=f.detectedType==='yt_summary'?'var(--gray2)':f.detectedType?'var(--lime)':'var(--amber)';
+    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(188,207,54,.06);font-size:11px">
+      <span style="color:var(--white)">${f.name}</span>
+      <span style="color:${color}">${action}</span>
+    </div>`;
+  }).join('');
+
+  // Platform selector
+  const platOpts=PLATFORMS.map(p=>`<option value="${p.id}" ${p.id===(meta.platform||'youtube')?'selected':''}>${p.name}</option>`).join('');
+
+  // Check if already imported
+  const alreadyNote=guessedIP&&meta.platform?
+    (isAlreadyImported(zipFilename,guessedIP.id,meta.platform||'youtube')?
+      '<div style="padding:8px 10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:3px;font-size:11px;color:var(--amber);margin-bottom:12px">⚠ 此檔案先前已匯入過，重新匯入將覆蓋相同日期的數據</div>':''):'';
+
+  const ov=document.createElement('div');
+  ov.id='zip-import-modal';ov.className='modal-overlay open';
+  ov.innerHTML=`<div class="modal" style="max-width:500px">
+    <button class="modal-close" onclick="document.getElementById('zip-import-modal').remove()">✕</button>
+    <div class="modal-title">確認 ZIP 匯入</div>
+    <div class="modal-sub" style="margin-bottom:14px">系統將自動將不同 CSV 分流至對應功能</div>
+
+    <div style="background:rgba(8,41,70,.6);border:1px solid rgba(188,207,54,.12);border-radius:3px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--lime);text-transform:uppercase;margin-bottom:8px">檔案內容偵測</div>
+      ${fileList}
+    </div>
+
+    ${alreadyNote}
+
+    <div class="frow" style="margin-bottom:12px">
+      <label>代操 IP</label>
+      <select class="fi" id="zip-import-ip">${ipOpts}</select>
+      ${guessedIP?`<div style="font-size:10px;color:var(--lime);margin-top:4px">✓ 從檔名自動比對：${guessedIP.name}</div>`:'<div style="font-size:10px;color:var(--amber);margin-top:4px">⚠ 請手動選擇對應 IP</div>'}
+    </div>
+
+    <div class="frow" style="margin-bottom:14px">
+      <label>平台</label>
+      <select class="fi" id="zip-import-plat">${platOpts}</select>
+      <div style="font-size:10px;color:var(--gray);margin-top:4px">
+        ${meta.startDate?`📅 資料範圍：${meta.startDate} ～ ${meta.endDate}`:''}
+        ${meta.platform?` · 從檔名識別平台`:'· 請確認平台是否正確'}
+      </div>
+    </div>
+
+    <div class="frow" style="margin-bottom:14px">
+      <label>對應月份 ${meta.startDate?'（自動偵測）':'⚠ 請選擇'}</label>
+      <input type="month" class="fi" id="zip-import-month" value="${meta.endDate?meta.endDate.slice(0,7):meta.startDate?meta.startDate.slice(0,7):new Date().toISOString().slice(0,7)}" style="font-size:13px"/>
+      <div style="font-size:10px;color:var(--gray);margin-top:4px">${meta.startDate?'從檔名自動取得，可手動調整':'找不到檔名日期，請手動選擇月份'}</div>
+    </div>
+
+    <div style="font-size:11px;color:var(--gray);padding:8px 10px;background:rgba(188,207,54,.04);border-radius:3px;margin-bottom:14px;line-height:1.7">
+      💡 <strong style="color:var(--white)">自動去重：</strong>相同 IP + 平台 + 日期的數據會自動覆蓋，不會產生重複筆數
+    </div>
+
+    <div class="err-msg" id="zip-import-err"></div>
+    <button class="btn-add" style="width:100%" onclick="confirmZipImport()">⬆ 確認匯入</button>
+  </div>`;
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  document.body.appendChild(ov);
+}
+
+async function confirmZipImport(){
+  const ipId=document.getElementById('zip-import-ip').value;
+  const platId=document.getElementById('zip-import-plat').value;
+  const errEl=document.getElementById('zip-import-err');
+  if(!ipId){errEl.textContent='⚠ 請選擇代操 IP';return;}
+
+  const ip=S.ips.find(x=>x.id===ipId);
+  const plat=PLATFORMS.find(p=>p.id===platId);
+  const{fileContents,meta,zipFilename}=_zipImportData;
+
+  let totalMetrics=0,totalVids=0;
+  const month=document.getElementById('zip-import-month')?.value||
+    (meta.endDate?meta.endDate.slice(0,7):(meta.startDate?meta.startDate.slice(0,7):new Date().toISOString().slice(0,7)));
+
+  for(const f of fileContents){
+    const{detectedType,text,name}=f;
+
+    if(detectedType==='tiktok_content'){
+      // Content.csv: 單支影片明細，含按讚、留言、分享
+      const{vids,err}=parseTikTokContentCsv(text,meta.year);
+      if(err&&!vids.length){errEl.textContent='✕ '+name+': '+err;return;}
+      if(vids.length>0){
+        const newVids=vids.map(v=>({
+          id:videoId(ipId,platId,month,v.title),
+          ipId,platform:platId,month,
+          title:v.title,views:v.views,
+          likes:v.likes,comments:v.comments,shares:v.shares,reposts:null,
+          publishDate:v.publishDate||null,
+        }));
+        await upsertVideos(newVids);
+        totalVids+=newVids.length;
+        // Also store total views as daily metric (use month-01 as proxy)
+        const totalV=vids.reduce((s,v)=>s+v.views,0);
+        if(totalV>0){
+          try{await commitRows([{ip,plat,date:month+'-01',views:totalV}]);totalMetrics+=1;}catch(e){}
+        }
+      }
+    }
+    else if(detectedType==='meta_insights'){
+      // Meta Business Suite IG/FB CSV
+      const{vids,err}=parseMetaInsightsCsv(text);
+      if(err&&!vids.length){errEl.textContent='✕ '+name+': '+err;return;}
+      if(vids.length>0){
+        const newVids=vids.map(v=>({
+          id:videoId(ipId,platId,month,v.title),
+          ipId,platform:platId,month,
+          title:v.title,views:v.views,
+          likes:v.likes,comments:v.comments,shares:v.shares,reposts:null,
+          publishDate:v.publishDate||null,
+        }));
+        await upsertVideos(newVids);
+        totalVids+=newVids.length;
+      }
+    }
+    else if(detectedType==='meta_reels'){
+      // Meta Business Suite IG/FB Reels CSV (貼文編號,帳號編號,...,說明,...,瀏覽次數,...)
+      const{vids,err}=parseMetaReelsCsv(text);
+      if(err&&!vids.length){errEl.textContent='✕ '+name+': '+err;return;}
+      if(vids.length>0){
+        const newVids=vids.map(v=>({
+          id:videoId(ipId,platId,month,v.title),
+          ipId,platform:platId,month,
+          title:v.title,views:v.views,
+          likes:v.likes,comments:v.comments,shares:v.shares,reposts:v.reposts,
+          publishDate:v.publishDate||null,
+        }));
+        await upsertVideos(newVids);
+        totalVids+=newVids.length;
+      }
+    }
+    else if(detectedType==='tiktok_overview'){
+      const{dailyRows,err}=parseTikTokOverviewCsv(text,meta.year);
+      if(err){errEl.textContent='✕ '+name+': '+err;return;}
+      const rows=dailyRows.filter(r=>r.views>0).map(r=>({ip,plat,date:r.date,views:r.views}));
+      try{await commitRows(rows);totalMetrics+=rows.length;}catch(e){errEl.textContent='✕ 儲存失敗';return;}
+    }
+    else if(detectedType==='yt_chart'){
+      // 圖表資料.csv: 每支影片逐日數據（非累積）
+      // 直接按日期加總存入流量數據
+      const csvRows=parseCSVText(text);
+      const headers=csvRows[0]||[];
+      const dateIdx=headers.indexOf('日期');
+      const vIdx=headers.indexOf('觀看次數');
+      if(dateIdx>=0&&vIdx>=0){
+        const dayMap=new Map();
+        csvRows.slice(1).forEach(cols=>{
+          const d=(cols[dateIdx]||'').trim();
+          const v=parseViews(cols[vIdx]);
+          if(!d||isNaN(v)||v<0)return;
+          let useDate=null;
+          if(/^\d{4}-\d{2}-\d{2}$/.test(d)){useDate=d;}
+          else if(/^\d{4}-\d{2}$/.test(d)){useDate=d+'-01';}
+          if(useDate)dayMap.set(useDate,(dayMap.get(useDate)||0)+v);
+        });
+        const dailyRows=[...dayMap.entries()]
+          .filter(([,views])=>views>0)
+          .map(([date,views])=>({ip,plat,date,views}));
+        if(dailyRows.length>0){
+          try{await commitRows(dailyRows);totalMetrics+=dailyRows.length;}catch(e){console.warn('yt_chart commit failed:',e);}
+        }
+        // 不從圖表資料建立影片排名（數據是逐日累積值，不是總觀看數）
+      }
+    }
+    else if(detectedType==='yt_table'){
+      // 表格資料.csv: 每支影片累積觀看數（一支影片一列）
+      // 只存影片排名，流量數據由圖表資料.csv 的逐日數據負責，避免重複計算
+      const csvRows=parseCSVText(text);
+      const headers=csvRows[0]||[];
+      const tIdx=headers.indexOf('影片標題');
+      const vIdx=headers.indexOf('觀看次數');
+      const dIdx=headers.indexOf('影片發布時間');
+
+      if(tIdx>=0&&vIdx>=0){
+        const vids=[];
+        csvRows.slice(1).forEach(cols=>{
+          const title=(cols[tIdx]||'').trim();
+          const viewsRaw=(cols[vIdx]||'').trim();
+          if(!title||title==='總計'||!viewsRaw)return;
+          const views=parseViews(viewsRaw);
+          if(isNaN(views)||views<=0)return;
+          const publishDate=dIdx>=0?parseEnglishDate(cols[dIdx]||''):null;
+          vids.push({title,views,publishDate});
+        });
+
+        if(vids.length>0){
+          const newVids=vids.map(v=>({
+            id:videoId(ipId,platId,month,v.title),
+            ipId,platform:platId,month,
+            title:v.title,views:v.views,publishDate:v.publishDate||null,
+          }));
+          await upsertVideos(newVids);
+          totalVids+=newVids.length;
+        }
+      }
+    }
+    else if(detectedType==='yt_summary'){
+      // 總計.csv: 每天所有影片的總觀看數，日期是完整 YYYY-MM-DD
+      const csvRows=parseCSVText(text);
+      const headers=csvRows[0]||[];
+      const dIdx=headers.indexOf('日期');
+      const vIdx=headers.indexOf('觀看次數');
+      if(dIdx>=0&&vIdx>=0){
+        const rows=[];
+        csvRows.slice(1).forEach(cols=>{
+          const d=(cols[dIdx]||'').trim();
+          const v=parseViews(cols[vIdx]);
+          if(!d||isNaN(v)||v<=0)return;
+          // Support both YYYY-MM-DD and YYYY-MM formats
+          const date=/^\d{4}-\d{2}$/.test(d)?d+'-01':d;
+          if(/^\d{4}-\d{2}-\d{2}$/.test(date))rows.push({ip,plat,date,views:v});
+        });
+        if(rows.length>0){try{await commitRows(rows);totalMetrics+=rows.length;}catch(e){console.warn('yt_summary commit failed:',e);}}
+      }
+    }
+    else{
+      // Unknown format — try generic parseImportText
+      const{rows}=parseImportText(text);
+      if(rows.length>0){try{await commitRows(rows);totalMetrics+=rows.length;}catch(e){}}
+    }
+  }
+
+  // Record import log
+  addImportLogEntry({
+    filename:zipFilename,ipId,platform:platId,
+    rowCount:totalMetrics+totalVids,
+    dateRange:`${meta.startDate||'?'} ～ ${meta.endDate||'?'}`,
+    metrics:totalMetrics,vids:totalVids,
+  });
+
+  _zipImportData=null;
+  document.getElementById('zip-import-modal').remove();
+  renderEntryTable();renderOverview();
+  if(totalVids>0)renderVideoRankings();
+
+  const parts=[];
+  if(totalMetrics>0)parts.push(`${totalMetrics} 筆流量數據`);
+  if(totalVids>0)parts.push(`${totalVids} 支影片排名`);
+  toast(`✓ 匯入完成：${parts.join(' + ')||'0 筆'}，已自動去重`);
+}
+
+// Core import rows → S.data
+async function commitRows(rows){
+  if(rows.length===0)return 0;
+  if(USE_SUPABASE){
+    const upserts=rows.map(r=>({ip_id:r.ip.id,platform:r.plat.id,date:r.date,views:r.views,created_by:S.session?.uid}));
+    const{error}=await sb.from('metrics').upsert(upserts,{onConflict:'ip_id,platform,date'});
+    if(error)throw new Error(error.message);
+    await loadMetricsFromDB();
+  } else {
+    rows.forEach(r=>{
+      S.data=S.data.filter(d=>!(d.ipId===r.ip.id&&d.platform===r.plat.id&&d.date===r.date));
+      S.data.push({ipId:r.ip.id,platform:r.plat.id,date:r.date,views:r.views});
+    });
+    saveData();
+  }
+  return rows.length;
+}
+
+// ── Meta Business Suite CSV import modal ──
+let _metaImportText=null;
+
+let _metaReelsText=null;
+function showMetaReelsModal(text){
+  _metaReelsText=text;
+  const ex=document.getElementById('meta-reels-modal');if(ex)ex.remove();
+  const{vids}=parseMetaReelsCsv(text);
+
+  // Auto-detect IP from account name in CSV (帳號名稱 column)
+  const rows=parseCSVText(text);
+  const headers=rows[0]||[];
+  const acctNameIdx=headers.findIndex(h=>h.trim()==='帳號名稱');
+  const acctUserIdx=headers.findIndex(h=>h.trim()==='帳號用戶名稱');
+  const acctName=rows[1]?.(acctNameIdx>=0?acctNameIdx:0)||'';
+  const acctUser=rows[1]?.(acctUserIdx>=0?acctUserIdx:0)||'';
+  const guessedIP=S.ips.find(x=>{
+    const hint=(acctName+acctUser).toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g,'');
+    const name=x.name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g,'');
+    return name.slice(0,5)===hint.slice(0,5)||hint.includes(name.slice(0,5))||name.includes(hint.slice(0,5));
+  });
+
+  const ipOpts=S.ips.map(ip=>`<option value="${ip.id}" ${ip===guessedIP?'selected':''}>${ip.name}</option>`).join('');
+  const platOpts=[{id:'instagram',name:'Instagram'},{id:'facebook',name:'Facebook'}]
+    .map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  const firstDate=vids.find(v=>v.publishDate)?.publishDate;
+  const defaultMonth=firstDate?firstDate.slice(0,7):new Date().toISOString().slice(0,7);
+
+  const preview=vids.slice(0,3).map(v=>`<div style="font-size:11px;color:var(--gray);padding:4px 0;border-bottom:1px solid rgba(188,207,54,.05)">
+    <span style="color:var(--white)">${v.title.slice(0,30)}${v.title.length>30?'…':''}</span>
+    <span style="color:var(--lime);margin-left:8px">${Number(v.views).toLocaleString()}</span>
+    ${v.likes!=null?`<span style="color:var(--gray2);margin-left:6px">👍${v.likes}</span>`:''}
+    ${v.comments!=null?`<span style="color:var(--gray2);margin-left:4px">💬${v.comments}</span>`:''}
+    ${v.shares!=null?`<span style="color:var(--gray2);margin-left:4px">↗${v.shares}</span>`:''}
+  </div>`).join('');
+
+  const ov=document.createElement('div');
+  ov.id='meta-reels-modal';ov.className='modal-overlay open';
+  ov.innerHTML=`<div class="modal" style="max-width:500px">
+    <button class="modal-close" onclick="document.getElementById('meta-reels-modal').remove()">✕</button>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <div style="background:rgba(225,48,108,.15);border:1px solid rgba(225,48,108,.3);border-radius:3px;padding:4px 10px;font-size:11px;font-weight:700;color:#e1306c">Meta Business Suite</div>
+      <div class="modal-title" style="margin-bottom:0">確認匯入設定</div>
+    </div>
+    <div class="modal-sub" style="margin-bottom:14px">偵測到 IG/FB Reels 格式，共 ${vids.length} 支影片（含按讚/留言/分享/儲存）</div>
+    <div style="background:rgba(225,48,108,.05);border:1px solid rgba(225,48,108,.12);border-radius:3px;padding:10px 12px;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;color:#e1306c;letter-spacing:.1em;margin-bottom:6px">預覽（前 3 筆）</div>
+      ${preview}
+    </div>
+    <div class="frow" style="margin-bottom:12px">
+      <label>代操 IP</label>
+      <select class="fi" id="mr-ip">${ipOpts}</select>
+      ${guessedIP?`<div style="font-size:10px;color:var(--lime);margin-top:4px">✓ 從帳號自動比對：${guessedIP.name}</div>`:'<div style="font-size:10px;color:var(--amber);margin-top:4px">⚠ 請手動選擇 IP</div>'}
+    </div>
+    <div class="frow" style="margin-bottom:12px">
+      <label>平台</label>
+      <select class="fi" id="mr-plat">${platOpts}</select>
+    </div>
+    <div class="frow" style="margin-bottom:14px">
+      <label>月份</label>
+      <input type="month" class="fi" id="mr-month" value="${defaultMonth}"/>
+      <div style="font-size:10px;color:var(--gray);margin-top:4px">從發布時間自動取得，可調整</div>
+    </div>
+    <div class="err-msg" id="mr-err"></div>
+    <button class="btn-add" style="width:100%" onclick="confirmMetaReelsImport()">⬆ 確認匯入</button>
+  </div>`;
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  document.body.appendChild(ov);
+}
+
+async function confirmMetaReelsImport(){
+  const ipId=document.getElementById('mr-ip').value;
+  const platId=document.getElementById('mr-plat').value;
+  const month=document.getElementById('mr-month').value;
+  const errEl=document.getElementById('mr-err');
+  if(!ipId){errEl.textContent='⚠ 請選擇 IP';return;}
+  if(!month){errEl.textContent='⚠ 請選擇月份';return;}
+  const{vids,err}=parseMetaReelsCsv(_metaReelsText);
+  if(err&&!vids.length){errEl.textContent='✕ '+err;return;}
+  const newVids=vids.map(v=>({
+    id:videoId(ipId,platId,month,v.title),
+    ipId,platform:platId,month,
+    title:v.title,views:v.views,
+    likes:v.likes,comments:v.comments,shares:v.shares,reposts:v.reposts,
+    publishDate:v.publishDate||null,
+  }));
+  await upsertVideos(newVids);
+  _metaReelsText=null;
+  document.getElementById('meta-reels-modal').remove();
+  document.getElementById('csv-input').value='';
+  renderVideoRankings();
+  toast(`✓ 匯入完成：${newVids.length} 支 IG/FB 影片`);
+}
+
+function showMetaImportModal(text){
+  _metaImportText=text;
+  const ex=document.getElementById('meta-import-modal');if(ex)ex.remove();
+  const{vids}=parseMetaInsightsCsv(text);
+
+  // Auto-detect IP from account username in CSV
+  const acct=vids[0]?.acct||'';
+  const acctName=vids[0]?.acctName||'';
+  const guessedIP=S.ips.find(x=>{
+    const hint=(acct+acctName).toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g,'');
+    const name=x.name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g,'');
+    return name.slice(0,5)===hint.slice(0,5)||hint.includes(name.slice(0,5))||name.includes(hint.slice(0,5));
+  });
+
+  const ipOpts=S.ips.map(ip=>`<option value="${ip.id}" ${ip===guessedIP?'selected':''}>${ip.name}</option>`).join('');
+  const platOpts=[{id:'instagram',name:'Instagram'},{id:'facebook',name:'Facebook'}]
+    .map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+
+  // Get month from first video's publishDate
+  const firstDate=vids.find(v=>v.publishDate)?.publishDate;
+  const defaultMonth=firstDate?firstDate.slice(0,7):new Date().toISOString().slice(0,7);
+
+  const preview=vids.slice(0,3).map(v=>`<div style="font-size:11px;color:var(--gray);padding:4px 0;border-bottom:1px solid rgba(188,207,54,.05)">
+    <span style="color:var(--white)">${v.title.slice(0,30)}${v.title.length>30?'…':''}</span>
+    <span style="color:var(--lime);margin-left:8px">${Number(v.views).toLocaleString()}</span>
+    ${v.likes!=null?`<span style="color:var(--gray2);margin-left:6px">👍${v.likes}</span>`:''}
+    ${v.comments!=null?`<span style="color:var(--gray2);margin-left:4px">💬${v.comments}</span>`:''}
+  </div>`).join('');
+
+  const ov=document.createElement('div');
+  ov.id='meta-import-modal';ov.className='modal-overlay open';
+  ov.innerHTML=`<div class="modal" style="max-width:500px">
+    <button class="modal-close" onclick="document.getElementById('meta-import-modal').remove()">✕</button>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <div style="background:rgba(225,48,108,.15);border:1px solid rgba(225,48,108,.3);border-radius:3px;padding:4px 10px;font-size:11px;font-weight:700;color:#e1306c">Meta Business Suite</div>
+      <div class="modal-title" style="margin-bottom:0">確認匯入設定</div>
+    </div>
+    <div class="modal-sub" style="margin-bottom:14px">偵測到 IG/FB 洞察報告格式，共 ${vids.length} 支影片</div>
+
+    <div style="background:rgba(225,48,108,.05);border:1px solid rgba(225,48,108,.12);border-radius:3px;padding:10px 12px;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;color:#e1306c;letter-spacing:.1em;margin-bottom:6px">預覽（前 3 筆）</div>
+      ${preview}
+    </div>
+
+    <div class="frow" style="margin-bottom:12px">
+      <label>代操 IP</label>
+      <select class="fi" id="meta-import-ip">${ipOpts}</select>
+      ${guessedIP?`<div style="font-size:10px;color:var(--lime);margin-top:4px">✓ 從帳號名稱自動比對：${guessedIP.name}</div>`:'<div style="font-size:10px;color:var(--amber);margin-top:4px">⚠ 請手動選擇 IP</div>'}
+    </div>
+    <div class="frow" style="margin-bottom:12px">
+      <label>平台</label>
+      <select class="fi" id="meta-import-plat">${platOpts}</select>
+    </div>
+    <div class="frow" style="margin-bottom:14px">
+      <label>月份</label>
+      <input type="month" class="fi" id="meta-import-month" value="${defaultMonth}"/>
+      <div style="font-size:10px;color:var(--gray);margin-top:4px">從發布時間自動取得，可調整</div>
+    </div>
+    <div class="err-msg" id="meta-import-err"></div>
+    <button class="btn-add" style="width:100%" onclick="confirmMetaImport()">⬆ 確認匯入</button>
+  </div>`;
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  document.body.appendChild(ov);
+}
+
+async function confirmMetaImport(){
+  const ipId=document.getElementById('meta-import-ip').value;
+  const platId=document.getElementById('meta-import-plat').value;
+  const month=document.getElementById('meta-import-month').value;
+  const errEl=document.getElementById('meta-import-err');
+  if(!ipId){errEl.textContent='⚠ 請選擇 IP';return;}
+  if(!month){errEl.textContent='⚠ 請選擇月份';return;}
+  if(!_metaImportText){errEl.textContent='⚠ 資料遺失，請重新上傳';return;}
+
+  const{vids,err}=parseMetaInsightsCsv(_metaImportText);
+  if(err||!vids.length){errEl.textContent='✕ '+(err||'沒有資料');return;}
+
+  const newVids=vids.map(v=>({
+    id:videoId(ipId,platId,month,v.title),
+    ipId,platform:platId,month,
+    title:v.title,views:v.views,
+    likes:v.likes,comments:v.comments,shares:v.shares,reposts:null,
+    publishDate:v.publishDate||null,
+  }));
+
+  await upsertVideos(newVids);
+  _metaImportText=null;
+  document.getElementById('meta-import-modal').remove();
+  renderVideoRankings();
+  toast(`✓ 匯入完成：${newVids.length} 支 IG/FB 影片`);
+}
+// Header: 貼文編號,帳號編號,帳號用戶名稱,帳號名稱,說明,時間長度,發佈時間,永久連結,貼文類型,...,瀏覽次數,觸及人數,按讚數,分享,追蹤人數,留言數,儲存次數
+function isMetaInsightsCsv(headers){
+  const h=headers.map(x=>(x||'').trim());
+  return h.includes('貼文編號')&&h.includes('說明')&&h.includes('瀏覽次數');
+}
+
+function parseMetaInsightsCsv(text){
+  const rows=parseCSVText(text);
+  if(rows.length<2)return{vids:[],err:'CSV 內容為空'};
+  const headers=rows[0];
+  if(!isMetaInsightsCsv(headers))return{vids:[],err:null};
+
+  const fi=name=>headers.findIndex(h=>(h||'').trim()===name);
+  const titleIdx=fi('說明');
+  const viewsIdx=fi('瀏覽次數');
+  const likesIdx=fi('按讚數');
+  const commentsIdx=fi('留言數');
+  const sharesIdx=fi('分享');
+  const dateIdx=fi('發佈時間');
+  const acctIdx=fi('帳號用戶名稱');
+  const acctNameIdx=fi('帳號名稱');
+
+  if(titleIdx<0||viewsIdx<0)return{vids:[],err:'找不到「說明」或「瀏覽次數」欄位'};
+
+  const vids=[];
+  rows.slice(1).forEach(cols=>{
+    const title=(cols[titleIdx]||'').trim();
+    if(!title)return;
+    const views=parseViews(cols[viewsIdx]);
+    if(isNaN(views)||views<0)return;
+    // Parse date: "03/15/2026 05:05" → "2026-03-15"
+    let publishDate=null;
+    if(dateIdx>=0){
+      const raw=(cols[dateIdx]||'').trim();
+      const m=raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if(m)publishDate=`${m[3]}-${m[1]}-${m[2]}`;
+    }
+    const likes=likesIdx>=0?parseViews(cols[likesIdx]):null;
+    const comments=commentsIdx>=0?parseViews(cols[commentsIdx]):null;
+    const shares=sharesIdx>=0?parseViews(cols[sharesIdx]):null;
+    const acct=acctIdx>=0?(cols[acctIdx]||'').trim():null;
+    const acctName=acctNameIdx>=0?(cols[acctNameIdx]||'').trim():null;
+    vids.push({title,views,likes:isNaN(likes)?null:likes,comments:isNaN(comments)?null:comments,shares:isNaN(shares)?null:shares,publishDate,acct,acctName});
+  });
+  return{vids,err:vids.length===0?'沒有解析到任何影片':null};
+}
+
+// Parse raw text into importable rows, returns {rows, errs, errDetails}
+function parseImportText(text){
+  const csvRows=parseCSVText(text);
+  const rows=[];const errDetails=[];
+  csvRows.forEach((cols,lineIdx)=>{
+    // Skip header-like rows
+    const first=(cols[0]||'').toLowerCase();
+    if(first==='ip'||first==='ip名稱'||first==='name'||first==='ip_name')return;
+    if(cols.length<4){errDetails.push(`第${lineIdx+1}行：欄位不足（${cols.length} 欄）`);return;}
+    const[ipRaw,platRaw,dateRaw,viewsRaw]=cols;
+    const ip=matchIP(ipRaw);
+    const plat=matchPlat(platRaw);
+    const date=normaliseDate(dateRaw);
+    const views=parseViews(viewsRaw);
+    if(!ip){errDetails.push(`第${lineIdx+1}行：找不到IP「${ipRaw}」`);return;}
+    if(!plat){errDetails.push(`第${lineIdx+1}行：無法識別平台「${platRaw}」`);return;}
+    if(!date){errDetails.push(`第${lineIdx+1}行：日期格式錯誤「${dateRaw}」`);return;}
+    if(isNaN(views)){errDetails.push(`第${lineIdx+1}行：觀看數無法解析「${viewsRaw}」`);return;}
+    rows.push({ip,plat,date,views});
+  });
+  return{rows,errDetails};
+}
+
+async function importCSV(){
+  const raw=document.getElementById('csv-input').value.trim();
+  if(!raw){toast('⚠ 請輸入 CSV 資料',true);return;}
+
+  // Check if this is a Meta Business Suite Reels CSV (new format)
+  const firstRows=parseCSVText(raw);
+  if(firstRows.length>0&&isMetaReelsCsv(firstRows[0])){
+    showMetaReelsModal(raw);
+    return;
+  }
+  // Check legacy meta insights format
+  if(firstRows.length>0&&typeof isMetaInsightsCsv==='function'&&isMetaInsightsCsv(firstRows[0])){
+    showMetaImportModal(raw);
+    return;
+  }
+
+  const{rows,errDetails}=parseImportText(raw);
+  if(rows.length===0){
+    toast(`⚠ 無法解析任何資料。${errDetails.length>0?'第一個錯誤：'+errDetails[0]:''}`,true);
+    if(errDetails.length>0)console.warn('CSV 解析錯誤詳情：',errDetails);
+    return;
+  }
+  try{
+    await commitRows(rows);
+    renderEntryTable();renderOverview();
+    document.getElementById('csv-input').value='';
+    const errNote=errDetails.length>0?` · ${errDetails.length} 筆略過`:'';
+    toast(`✓ 匯入 ${rows.length} 筆${errNote}`);
+    if(errDetails.length>0)console.warn('略過的行：',errDetails);
+  }catch(e){toast('✕ 匯入失敗：'+e.message,true);}
+}
+
+// ── Core import rows → S.data ──
+
+// ══════════════════════════════════════════════════
+//  VIDEO RANKINGS
+// ══════════════════════════════════════════════════
+// ── Video storage: Supabase (primary) + localStorage (fallback/cache) ──
+const VK='wm_videos_cache';
+
+function videosFromRows(rows){
+  return rows.map(r=>({
+    id:r.id, ipId:r.ip_id, platform:r.platform, month:r.month,
+    title:r.title, views:r.views,
+    likes:r.likes??null, comments:r.comments??null,
+    shares:r.shares??null, reposts:r.reposts??null,
+    publishDate:r.publish_date||null,
+  }));
+}
+
+function videoToRow(v){
+  return{
+    id:v.id, ip_id:v.ipId, platform:v.platform, month:v.month,
+    title:v.title, views:v.views||0,
+    likes:v.likes??null, comments:v.comments??null,
+    shares:v.shares??null, reposts:v.reposts??null,
+    publish_date:v.publishDate||null,
+    created_by:S.session?.uid||null,
+  };
+}
+
+// Sync from Supabase into localStorage cache + return
+async function loadVideosFromDB(){
+  if(!USE_SUPABASE)return;
+  try{
+    const{data,error}=await sb.from('videos').select('*').order('month',{ascending:false});
+    if(error)throw error;
+    const vids=videosFromRows(data||[]);
+    localStorage.setItem(VK,JSON.stringify(vids));
+  }catch(e){console.warn('loadVideosFromDB failed',e);}
+}
+
+function loadVideos(){
+  const d=localStorage.getItem(VK);
+  return d?JSON.parse(d):[];
+}
+
+async function saveVideos(vids){
+  // Always update localStorage cache immediately
+  localStorage.setItem(VK,JSON.stringify(vids));
+  // Supabase sync handled by upsertVideos / deleteVideo
+}
+
+// Deterministic video ID — same video always gets same ID (enables dedup)
+function videoId(ipId, platform, month, title){
+  const str=`${ipId}::${platform}::${month}::${title}`;
+  let h=0;
+  for(let i=0;i<str.length;i++){h=Math.imul(31,h)+str.charCodeAt(i)|0;}
+  return'v'+Math.abs(h).toString(36);
+}
+
+async function upsertVideos(newVids){
+  // Merge into local cache by id
+  const cache=loadVideos();
+  const merged=[...cache.filter(v=>!newVids.find(n=>n.id===v.id)),...newVids];
+  localStorage.setItem(VK,JSON.stringify(merged));
+  if(!USE_SUPABASE)return;
+  try{
+    const rows=newVids.map(videoToRow);
+    const{error}=await sb.from('videos').upsert(rows,{onConflict:'ip_id,platform,month,title'});
+    if(error)throw error;
+  }catch(e){console.warn('upsertVideos failed',e);}
+}
+
+async function deleteVideoFromDB(id){
+  const vids=loadVideos().filter(v=>v.id!==id);
+  localStorage.setItem(VK,JSON.stringify(vids));
+  if(!USE_SUPABASE)return;
+  try{
+    const{error}=await sb.from('videos').delete().eq('id',id);
+    if(error)throw error;
+  }catch(e){console.warn('deleteVideoFromDB failed',e);}
+}
+
+// ── Platform CSV field mappings ──
+// Each entry: [titleKeys, viewKeys, dateKeys]
+// ── YouTube CSV type detector ──
+// 根據欄位判斷是「表格資料」「圖表資料」還是「總計」
+function detectYouTubeCsvType(headers){
+  const h=headers.map(x=>(x||'').trim());
+  // 總計：只有「日期,觀看次數」
+  if(h.length<=2&&h.some(x=>x==='觀看次數'||x==='Views')&&!h.includes('影片標題')&&!h.includes('內容'))
+    return 'summary';
+  // 圖表資料：有「日期」+「內容」+「影片標題」
+  if(h.includes('日期')&&h.includes('內容')&&h.includes('影片標題'))
+    return 'chart';
+  // 表格資料：有「內容」+「影片標題」，無「日期」
+  if(h.includes('內容')&&h.includes('影片標題'))
+    return 'table';
+  return 'unknown';
+}
+
+// Platform field mappings（updated with real YouTube column names）
+const PLAT_FIELDS={
+  tiktok:{
+    title:['video title','影片標題','標題','title','影片名稱','video name','video_title'],
+    views:['video views','觀看次數','views','view count','播放量','video view','觀看'],
+    date:['video publish time','publish time','發布時間','發佈時間','published','日期','date'],
+  },
+  youtube:{
+    // 表格資料.csv 欄位
+    title:['影片標題','video title','title','標題','內容名稱'],
+    views:['觀看次數','views','view count','播放次數','video views'],
+    date:['影片發布時間','video publish time','影片發佈時間','publish date','發布日期','發佈日期','日期'],
+    // 圖表資料.csv 特有欄位
+    chartTitle:['影片標題'],
+    chartViews:['觀看次數'],
+    chartDate:['日期'],
+    chartVideoId:['內容'],
+    // 跳過第一列「總計」的標記
+    skipRowIfCol0:['總計','total'],
+  },
+  instagram:{
+    title:['說明','description','貼文說明','caption','影片說明','post description','title','標題','內容說明'],
+    views:['影片觀看次數','video views','觀看次數','views','觀看','播放','reels views','video view','影片播放次數'],
+    date:['發佈日期','post date','date','日期','發布時間','publish date','貼文日期'],
+  },
+  facebook:{
+    title:['說明','description','貼文說明','title','caption','post description','內容說明'],
+    views:['影片觀看次數','video views','觀看次數','views','3秒影片觀看次數','3-second video views','影片播放次數'],
+    date:['發佈日期','post date','date','日期','發布時間','貼文日期'],
+  },
+  threads:{
+    title:['說明','description','內容','content','title','標題'],
+    views:['瀏覽次數','views','觀看次數','曝光次數','impressions'],
+    date:['發佈日期','date','日期','發布時間'],
+  },
+};
+
+// Parse English month names like "Apr 20, 2026" → "2026-04-20"
+function parseEnglishDate(s){
+  if(!s)return null;
+  s=s.trim();
+  const MONTHS={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
+                jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+  // "Apr 20, 2026"
+  const m=s.match(/^([A-Za-z]{3})\s+(\d{1,2}),?\s+(\d{4})$/);
+  if(m){
+    const mo=MONTHS[m[1].toLowerCase()];
+    if(mo)return`${m[3]}-${mo}-${m[2].padStart(2,'0')}`;
+  }
+  // "2026-04" (year-month only) → keep as month string
+  if(/^\d{4}-\d{2}$/.test(s))return s;
+  return normaliseDate(s);
+}
+
+// Parse a platform-native video CSV → {vids:[{title,views,publishDate}], dailyRows:[{date,views}], err}
+function parsePlatformVideoCsv(text, platId){
+  const rows=parseCSVText(text);
+  if(rows.length<2)return{vids:[],dailyRows:[],err:'CSV 內容為空或只有標題列'};
+  const headers=rows[0];
+
+  // ── Special handling for YouTube's three CSV types ──
+  if(platId==='youtube'){
+    const csvType=detectYouTubeCsvType(headers);
+
+    if(csvType==='table'){
+      // 表格資料.csv: 內容,影片標題,影片發布時間,時間長度,觀看次數,...
+      const tIdx=headers.indexOf('影片標題');
+      const vIdx=headers.indexOf('觀看次數');
+      const dIdx=headers.indexOf('影片發布時間');
+      if(tIdx<0||vIdx<0)return{vids:[],dailyRows:[],err:`表格資料.csv 找不到必要欄位。偵測到：${headers.join(', ')}`};
+      const vids=[];
+      rows.slice(1).forEach(cols=>{
+        const title=(cols[tIdx]||'').trim();
+        if(!title||title==='總計'||title==='total')return; // skip summary row
+        const views=parseViews(cols[vIdx]);
+        const publishDate=dIdx>=0?parseEnglishDate(cols[dIdx]||''):null;
+        if(isNaN(views)||views<0)return;
+        vids.push({title,views,publishDate});
+      });
+      return{vids,dailyRows:[],err:vids.length===0?'沒有解析到任何影片，請確認欄位格式':null};
+    }
+
+    if(csvType==='chart'){
+      // 圖表資料.csv: 日期,內容,影片標題,影片發布時間,時間長度,觀看次數
+      // Same video appears multiple times for different months — aggregate by title
+      const dateIdx=headers.indexOf('日期');
+      const tIdx=headers.indexOf('影片標題');
+      const vIdx=headers.indexOf('觀看次數');
+      const dPubIdx=headers.indexOf('影片發布時間');
+      if(tIdx<0||vIdx<0)return{vids:[],dailyRows:[],err:`圖表資料.csv 找不到必要欄位。偵測到：${headers.join(', ')}`};
+      // Aggregate: sum views per title
+      const map=new Map();
+      rows.slice(1).forEach(cols=>{
+        const title=(cols[tIdx]||'').trim();
+        if(!title)return;
+        const views=parseViews(cols[vIdx]);
+        if(isNaN(views)||views<0)return;
+        const existing=map.get(title)||{title,views:0,publishDate:null};
+        existing.views+=views;
+        if(!existing.publishDate&&dPubIdx>=0)
+          existing.publishDate=parseEnglishDate(cols[dPubIdx]||'');
+        map.set(title,existing);
+      });
+      const vids=[...map.values()].filter(v=>v.views>0);
+      // Also extract daily rows if dateIdx present
+      const dailyRows=[];
+      if(dateIdx>=0){
+        const dayMap=new Map();
+        rows.slice(1).forEach(cols=>{
+          const d=(cols[dateIdx]||'').trim();
+          const v=parseViews(cols[vIdx]);
+          if(!d||isNaN(v)||v<0)return;
+          dayMap.set(d,(dayMap.get(d)||0)+v);
+        });
+        dayMap.forEach((v,d)=>dailyRows.push({date:d,views:v}));
+      }
+      return{vids,dailyRows,err:vids.length===0?'沒有解析到任何影片':null};
+    }
+
+    if(csvType==='summary'){
+      // 總計.csv: 日期,觀看次數 — only daily totals, no video details
+      const dIdx=0,vIdx=1;
+      const dailyRows=[];
+      rows.slice(1).forEach(cols=>{
+        const date=(cols[dIdx]||'').trim();
+        const views=parseViews(cols[vIdx]);
+        if(!date||isNaN(views)||views<0)return;
+        dailyRows.push({date,views});
+      });
+      return{vids:[],dailyRows,err:dailyRows.length===0?'總計.csv 沒有資料':null,isSummaryOnly:true};
+    }
+
+    // Fallback: generic YouTube matching
+  }
+
+  // ── Generic matching for TikTok, IG, FB, Threads ──
+  const fields=PLAT_FIELDS[platId]||PLAT_FIELDS.tiktok;
+  const tIdx=findColIdx(headers,fields.title);
+  const vIdx=findColIdx(headers,fields.views);
+  const dIdx=findColIdx(headers,fields.date||[]);
+  if(tIdx<0)return{vids:[],dailyRows:[],err:`找不到「標題」欄位。偵測到欄位：${headers.slice(0,8).join(' | ')}`};
+  if(vIdx<0)return{vids:[],dailyRows:[],err:`找不到「觀看數」欄位。偵測到欄位：${headers.slice(0,8).join(' | ')}`};
+
+  const vids=[];
+  rows.slice(1).forEach(cols=>{
+    const title=(cols[tIdx]||'').trim();
+    if(!title)return;
+    const views=parseViews(cols[vIdx]);
+    const publishDate=dIdx>=0?parseEnglishDate(cols[dIdx]||''):null;
+    if(isNaN(views)||views<0)return;
+    vids.push({title,views,publishDate});
+  });
+  return{vids,dailyRows:[],err:vids.length===0?'沒有解析到任何影片':null};
+}
+
+// Handle file upload for video CSV/ZIP
+async function handleVidFile(input){
+  const file=input.files[0];if(!file)return;
+  const ipId=document.getElementById('vid-ip-sel').value;
+  const platform=document.getElementById('vid-plat-sel').value;
+  const month=document.getElementById('vid-month-input').value;
+  const statusEl=document.getElementById('vid-import-status');
+
+  if(!ipId){statusEl.textContent='⚠ 請先選擇代操 IP';statusEl.style.color='var(--red)';return;}
+  if(!month){statusEl.textContent='⚠ 請先選擇月份';statusEl.style.color='var(--red)';return;}
+
+  statusEl.style.color='var(--gray)';statusEl.textContent='解析中…';
+
+  const ext=file.name.toLowerCase().split('.').pop();
+  let allResults=[];// [{vids,dailyRows,fileName}]
+
+  if(ext==='zip'){
+    if(typeof JSZip==='undefined'){statusEl.textContent='⚠ JSZip 未載入，請重新整理';return;}
+    try{
+      const zip=await JSZip.loadAsync(file);
+      const csvFiles=Object.values(zip.files).filter(f=>!f.dir&&/\.(csv|txt)$/i.test(f.name));
+      if(!csvFiles.length){statusEl.textContent='⚠ ZIP 內找不到 CSV';statusEl.style.color='var(--red)';return;}
+      for(const f of csvFiles){
+        const text=await f.async('string');
+        const res=parsePlatformVideoCsv(text,platform);
+        allResults.push({...res,fileName:f.name});
+      }
+    }catch(e){statusEl.textContent='✕ ZIP 讀取失敗：'+e.message;statusEl.style.color='var(--red)';return;}
+  } else {
+    const text=await file.text();
+    const res=parsePlatformVideoCsv(text,platform);
+    allResults.push({...res,fileName:file.name});
+  }
+
+  // Process results
+  let totalVids=0,totalDaily=0;
+  const messages=[];
+
+  for(const res of allResults){
+    if(res.isSummaryOnly){
+      // 總計.csv → offer to import as daily metric
+      if(res.dailyRows.length>0){
+        messages.push(`「${res.fileName}」是每月總計，共 ${res.dailyRows.length} 筆日期數據`);
+        // Auto-import daily totals into S.data if user wants
+        // For now just inform — they can use the main CSV import for this
+      }
+      continue;
+    }
+    if(res.err&&res.vids.length===0){
+      messages.push(`「${res.fileName}」⚠ ${res.err}`);
+      continue;
+    }
+    if(res.vids.length>0){
+      // Merge video data
+      const newVids=res.vids.map(v=>({
+        id:videoId(ipId,platform,month,v.title),
+        ipId,platform,month,
+        title:v.title,views:v.views,
+        publishDate:v.publishDate||null,
+      }));
+      await upsertVideos(newVids);
+      totalVids+=newVids.length;
+      messages.push(`「${res.fileName}」✓ ${newVids.length} 支影片`);
+    }
+    // Also import daily rows into metrics if available (圖表資料.csv)
+    if(res.dailyRows&&res.dailyRows.length>0){
+      const ip=S.ips.find(x=>x.id===ipId);
+      if(ip){
+        const toAdd=res.dailyRows.map(r=>({ipId,platform,date:r.date,views:r.views}));
+        // Only import rows that have valid YYYY-MM-DD dates
+        const valid=toAdd.filter(r=>r.date.match(/^\d{4}-\d{2}-\d{2}$/));
+        if(valid.length>0){
+          try{await commitRows(valid.map(r=>({ip,plat:PLATFORMS.find(p=>p.id===platform),date:r.date,views:r.views})));}
+          catch(e){}
+          totalDaily+=valid.length;
+          messages.push(`  └ 同時匯入 ${valid.length} 筆每日流量數據`);
+        }
+      }
+    }
+  }
+
+  if(totalVids===0&&totalDaily===0){
+    statusEl.style.color='var(--red)';
+    statusEl.textContent='✕ '+messages.join(' | ');
+    input.value='';return;
+  }
+
+  document.getElementById('vrank-month-sel').value=month;
+  renderVideoRankings();
+  if(totalDaily>0){renderOverview();}
+
+  statusEl.style.color='var(--green)';
+  statusEl.textContent=messages.join(' · ');
+  toast(`✓ 匯入完成：${totalVids} 支影片${totalDaily>0?' + '+totalDaily+' 筆流量':''}`,false);
+  input.value='';
+}
+
+// Toggle import section
+function toggleVidImport(){
+  const sec=document.getElementById('vid-import-section');
+  const isOpen=sec.style.display!=='none';
+  sec.style.display=isOpen?'none':'block';
+  // Update edit btn text
+  renderVidEditBtn();
+}
+
+function renderVidEditBtn(){
+  const wrap=document.getElementById('vrank-edit-btn-wrap');
+  if(!wrap||!can('editor'))return;
+  const month=document.getElementById('vrank-month-sel')?.value||new Date().toISOString().slice(0,7);
+  wrap.innerHTML=`<button class="btn-sm" style="font-size:11px" onclick="openAddVideoModal('${month}')">＋ 手動新增</button>`;
+}
+
+// ══════════════════════════════════════════════════
+//  TOTAL ACCUMULATION TAB
+// ══════════════════════════════════════════════════
+const GOAL_TARGET=1500000; // 150萬
+const CYCLE_SIZE=24; // 每累積 24 支影片為一個週期
+
+// 取得某 IP 的所有影片，依發布日期或月份排序，計算週期
+function getIPCycles(ipId){
+  const allVids=loadVideos().filter(v=>v.ipId===ipId);
+  if(!allVids.length)return[];
+  // Sort by publishDate or month
+  allVids.sort((a,b)=>{
+    const da=a.publishDate||a.month+'-01';
+    const db=b.publishDate||b.month+'-01';
+    return da.localeCompare(db);
+  });
+  // Group into cycles of 24
+  const cycles=[];
+  for(let i=0;i<allVids.length;i+=CYCLE_SIZE){
+    const chunk=allVids.slice(i,i+CYCLE_SIZE);
+    const cycleNum=Math.floor(i/CYCLE_SIZE)+1;
+    const firstDate=chunk[0].publishDate||chunk[0].month+'-01';
+    const lastDate=chunk[chunk.length-1].publishDate||chunk[chunk.length-1].month+'-01';
+    const totalViews=chunk.reduce((s,v)=>s+v.views,0);
+    cycles.push({cycleNum,vids:chunk,firstDate,lastDate,totalViews,isComplete:chunk.length===CYCLE_SIZE});
+  }
+  return cycles;
+}
+
+let totalMonthlyChart=null;
+function renderTotal(){
+  const sel=document.getElementById('total-quarter-sel');
+  if(!sel)return;
+
+  // Build cycle options per IP — show current cycle for each IP
+  const allVids=loadVideos();
+  const ipCycleData=S.ips.map((ip,idx)=>{
+    const cycles=getIPCycles(ip.id);
+    return{ip,cycles,col:ACCENTS[idx%ACCENTS.length]};
+  });
+
+  // Populate selector with current cycles
+  const cycleOptions=ipCycleData.flatMap(({ip,cycles})=>
+    cycles.map(c=>`<option value="${ip.id}::${c.cycleNum}">${ip.name.slice(0,10)} 第${c.cycleNum}週期（${c.firstDate.slice(0,7)}～${c.lastDate.slice(0,7)}）</option>`)
+  );
+  if(!cycleOptions.length)cycleOptions.push('<option value="">尚無影片數據</option>');
+  const curVal=sel.value;
+  sel.innerHTML=cycleOptions.join('');
+  if(curVal&&sel.querySelector(`option[value="${curVal}"]`))sel.value=curVal;
+
+  // Goal bars — show current (latest) cycle per IP
+  const goalsEl=document.getElementById('total-goal-bars');
+  if(!goalsEl)return;
+  goalsEl.innerHTML=ipCycleData.map(({ip,cycles,col})=>{
+    if(!cycles.length)return`<div class="goal-bar-wrap">
+      <div style="font-size:13px;font-weight:700;color:var(--white);margin-bottom:4px">${ip.name}</div>
+      <div style="font-size:12px;color:var(--gray2)">尚無影片數據，無法計算週期</div>
+    </div>`;
+
+    const cur=cycles[cycles.length-1]; // current (latest) cycle
+    const pct=Math.min(cur.totalViews/GOAL_TARGET*100,100);
+    const reached=pct>=100,near=pct>=60;
+    const remaining=Math.max(0,GOAL_TARGET-cur.totalViews);
+    const vidsLeft=CYCLE_SIZE-cur.vids.length;
+    return`<div class="goal-bar-wrap">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--white);margin-bottom:3px">${ip.name}</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px">
+            <span style="color:var(--gray)">第 <strong style="color:${col}">${cur.cycleNum}</strong> 週期</span>
+            <span style="color:var(--gray)">本週期 <strong style="color:var(--white)">${cur.vids.length}</strong> / 24 支</span>
+            <span style="color:var(--gray)">起始：<strong style="color:var(--white)">${cur.firstDate.slice(0,7)}</strong></span>
+            ${!cur.isComplete?`<span style="color:var(--amber)">還差 ${vidsLeft} 支滿週期</span>`:`<span style="color:#4ade80">✓ 週期已滿</span>`}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:12px">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:${col};line-height:1">${fmt(cur.totalViews)}</div>
+          <div style="font-size:10px;color:${reached?'#4ade80':near?'#fbbf24':'var(--gray)'}">
+            ${reached?'🎉 已達標':`還差 ${fmt(remaining)}`}
+          </div>
+        </div>
+      </div>
+      <div class="goal-track">
+        <div class="goal-fill" style="width:${pct.toFixed(1)}%;background:${reached?'linear-gradient(90deg,#4ade80,#BCCF36)':near?'linear-gradient(90deg,#fbbf24,#fb923c)':col+'99'}"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;margin-top:2px">
+        <span style="color:var(--gray2)">目標：150 萬 / 24 支</span>
+        <span style="color:${reached?'#4ade80':near?'#fbbf24':'var(--gray)'}"><strong>${pct.toFixed(1)}%</strong></span>
+      </div>
+      ${cycles.length>1?`<div style="margin-top:8px;font-size:10px;color:var(--gray2)">歷史週期：${cycles.slice(0,-1).map(c=>`第${c.cycleNum}期 ${fmt(c.totalViews)}${c.totalViews>=GOAL_TARGET?' ✓':''}`).join(' · ')}</div>`:''}
+    </div>`;
+  }).join('');
+
+  // Monthly trend chart per IP
+  const allMonths=[...new Set(S.data.map(d=>d.date.slice(0,7)))].sort().slice(-6);
+  const datasets=S.ips.map((ip,idx)=>({
+    label:ip.name,
+    data:allMonths.map(m=>S.data.filter(d=>d.ipId===ip.id&&d.date.startsWith(m)).reduce((s,d)=>s+d.views,0)),
+    borderColor:ACCENTS[idx%ACCENTS.length],
+    backgroundColor:ACCENTS[idx%ACCENTS.length]+'33',
+    fill:false,tension:.35,pointRadius:3,pointHoverRadius:5,borderWidth:2,
+  }));
+  if(totalMonthlyChart){totalMonthlyChart.destroy();totalMonthlyChart=null;}
+  const ctx2=document.getElementById('total-monthly-chart');
+  if(ctx2&&allMonths.length>0){
+    totalMonthlyChart=new Chart(ctx2.getContext('2d'),{
+      type:'line',
+      data:{labels:allMonths.map(m=>m.slice(2)),datasets},
+      options:{responsive:true,interaction:{mode:'index',intersect:false},
+        plugins:{legend:{labels:{color:'#8fa5b8',font:{size:11},boxWidth:11}},
+          tooltip:{backgroundColor:'rgba(4,25,41,.96)',borderColor:'rgba(188,207,54,.3)',borderWidth:1,
+            titleColor:'#BCCF36',bodyColor:'#f0f4f8',
+            callbacks:{label:c=>' '+c.dataset.label+': '+Number(c.raw).toLocaleString()}}},
+        scales:{
+          x:{ticks:{color:'#4a6378',font:{size:10}},grid:{color:'rgba(188,207,54,.05)'},border:{display:false}},
+          y:{ticks:{color:'#4a6378',font:{size:10},callback:v=>fmt(v)},grid:{color:'rgba(188,207,54,.05)'},border:{display:false}}
+        }
+      }
+    });
+  }
+
+  // Accumulation table
+  const tableEl=document.getElementById('total-table-wrap');
+  if(!tableEl)return;
+  // All months in data
+  const tablMonths=[...new Set(S.data.map(d=>d.date.slice(0,7)))].sort().reverse().slice(0,6);
+  tableEl.innerHTML=`<div class="tbl-wrap"><table class="dtbl">
+    <thead><tr>
+      <th>IP</th>
+      ${tablMonths.map(m=>`<th>${m.slice(2)}</th>`).join('')}
+      <th>近 ${tablMonths.length} 月合計</th>
+    </tr></thead>
+    <tbody>${S.ips.map((ip,idx)=>{
+      const cols=tablMonths.map(m=>{
+        const v=S.data.filter(d=>d.ipId===ip.id&&d.date.startsWith(m)).reduce((s,d)=>s+d.views,0);
+        return`<td style="font-family:'Barlow Condensed',sans-serif;font-size:14px;color:${v>0?ACCENTS[idx%ACCENTS.length]:'var(--gray2)'}">
+          ${v>0?Number(v).toLocaleString():'—'}</td>`;
+      }).join('');
+      const total=tablMonths.reduce((s,m)=>s+S.data.filter(d=>d.ipId===ip.id&&d.date.startsWith(m)).reduce((ss,d)=>ss+d.views,0),0);
+      return`<tr>
+        <td style="font-weight:700;color:var(--white)">${ip.name}</td>
+        ${cols}
+        <td style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--lime)">${total>0?Number(total).toLocaleString():'—'}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
+let vrankView='all'; // 'all' | 'plat' | 'ip'
+let vrankSelPlat='youtube'; // selected platform in plat view
+
+function switchVrankView(view,btn){
+  vrankView=view;
+  document.querySelectorAll('.vrank-view-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const platFilter=document.getElementById('vrank-plat-filter');
+  if(platFilter)platFilter.style.display=view==='plat'?'flex':'none';
+  renderVrankContent();
+}
+
+function renderVideoRankings(){
+  const vids=loadVideos();
+  // Build month options from data + recent months
+  const months=new Set();
+  vids.forEach(v=>months.add(v.month));
+  for(let i=0;i<6;i++){const d=new Date();d.setMonth(d.getMonth()-i);months.add(d.toISOString().slice(0,7));}
+  const sortedMonths=[...months].sort((a,b)=>b.localeCompare(a));
+  const sel=document.getElementById('vrank-month-sel');
+  if(!sel)return;
+  const curVal=sel.value||sortedMonths[0];
+  sel.innerHTML=sortedMonths.map(m=>`<option value="${m}" ${m===curVal?'selected':''}>${m}</option>`).join('');
+
+  // Edit button
+  renderVidEditBtn();
+
+  // Platform filter pills for plat view
+  const platFilter=document.getElementById('vrank-plat-filter');
+  if(platFilter){
+    const month=sel.value||sortedMonths[0];
+    const usedPlats=[...new Set(vids.filter(v=>v.month===month).map(v=>v.platform))];
+    platFilter.innerHTML=PLATFORMS.filter(p=>usedPlats.includes(p.id)).map(p=>`
+      <div onclick="vrankSelPlat='${p.id}';renderVrankContent()" style="cursor:pointer;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1.5px solid ${p.color};color:${p.color};background:${vrankSelPlat===p.id?p.color+'22':'transparent'};transition:all .14s">${p.name}</div>`).join('');
+    platFilter.style.display=vrankView==='plat'?'flex':'none';
+  }
+
+  renderVrankContent();
+}
+
+function renderVrankContent(){
+  const sel=document.getElementById('vrank-month-sel');
+  const month=sel?.value||new Date().toISOString().slice(0,7);
+  const allVids=loadVideos().filter(v=>v.month===month);
+  const container=document.getElementById('vrank-container');
+  if(!container)return;
+
+  if(allVids.length===0){
+    container.innerHTML=`<div style="text-align:center;padding:40px;color:var(--gray2)">
+      <div style="font-size:32px;margin-bottom:12px">📭</div>
+      <div style="font-size:14px;margin-bottom:8px">${month} 尚無影片數據</div>
+      <div style="font-size:12px;color:var(--gray2)">請至「數據輸入」頁面上傳 ZIP 或 CSV 檔案</div>
+    </div>`;
+    return;
+  }
+
+  if(vrankView==='all'){
+    renderVrankAll(allVids,month,container);
+  } else if(vrankView==='plat'){
+    renderVrankByPlat(allVids,month,container);
+  } else {
+    renderVrankByIP(allVids,month,container);
+  }
+}
+
+// ── Interaction stats badge helper ──
+function interactionBadge(v){
+  const items=[];
+  if(v.likes!=null)   items.push(`👍 ${Number(v.likes).toLocaleString()}`);
+  if(v.comments!=null)items.push(`💬 ${Number(v.comments).toLocaleString()}`);
+  if(v.shares!=null)  items.push(`↗ ${Number(v.shares).toLocaleString()}`);
+  if(v.reposts!=null) items.push(`🔁 ${Number(v.reposts).toLocaleString()}`);
+  if(!items.length)return '';
+  return`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:3px">${items.map(s=>`<span style="font-size:10px;color:var(--gray2)">${s}</span>`).join('')}</div>`;
+}
+function vidEditBtn(v,month){
+  if(!can('editor'))return'';
+  return`<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+    <button onclick="openAddVideoModal('${month}','${v.ipId}','${v.id}')" style="background:transparent;border:1px solid rgba(188,207,54,.2);color:var(--lime);font-size:10px;cursor:pointer;padding:2px 6px;border-radius:2px;line-height:1.4">✏</button>
+    <button onclick="deleteVideo('${v.id}')" style="background:transparent;border:none;color:var(--gray2);font-size:16px;cursor:pointer;padding:0;line-height:1">×</button>
+  </div>`;
+}
+
+// ── 視角一：全部影片一起排 ──
+function renderVrankAll(allVids,month,container){
+  const sorted=[...allVids].sort((a,b)=>b.views-a.views);
+  const maxV=sorted[0]?.views||1;
+  const total=sorted.reduce((s,v)=>s+v.views,0);
+  const avg=sorted.length?Math.round(total/sorted.length):0;
+
+  // Summary bar
+  const summaryHtml=`<div style="display:flex;gap:20px;margin-bottom:14px;flex-wrap:wrap">
+    <div class="stat-card" style="flex:1;min-width:120px;padding:12px 16px">
+      <div class="stat-label">影片總數</div>
+      <div class="stat-val">${sorted.length}</div>
+    </div>
+    <div class="stat-card" style="flex:1;min-width:120px;padding:12px 16px">
+      <div class="stat-label">總觀看數</div>
+      <div class="stat-val">${fmt(total)}</div>
+    </div>
+    <div class="stat-card" style="flex:1;min-width:120px;padding:12px 16px">
+      <div class="stat-label">單片平均</div>
+      <div class="stat-val">${fmt(avg)}</div>
+    </div>
+    <div class="stat-card" style="flex:1;min-width:120px;padding:12px 16px">
+      <div class="stat-label">最高單片</div>
+      <div class="stat-val" style="color:var(--lime)">${fmt(maxV)}</div>
+    </div>
+  </div>`;
+
+  const rowsHtml=sorted.map((v,i)=>{
+    const ip=S.ips.find(x=>x.id===v.ipId);
+    const p=PLATFORMS.find(x=>x.id===v.platform);
+    const ipIdx=S.ips.findIndex(x=>x.id===v.ipId);
+    const col=ACCENTS[ipIdx%ACCENTS.length];
+    const isFirst=i===0,isLast=i===sorted.length-1&&sorted.length>1;
+    const rankClass=i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':isLast?'rank-last':'rank-n';
+    const rankLabel=isLast?'▼':`${i+1}`;
+    const barW=(v.views/maxV*100).toFixed(1);
+    const barColor=isFirst?col:isLast?'#f87171':'rgba(255,255,255,.12)';
+    return`<div class="vrank-row">
+      <div class="vrank-rank ${rankClass}">${rankLabel}</div>
+      <div class="vrank-bar-wrap" style="flex:1">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">
+          <div class="vrank-title" title="${v.title.replace(/"/g,'&quot;')}">${v.title}</div>
+          ${p?`<div class="vrank-plat-badge" style="background:${p.color}22;color:${p.color}">${p.name}</div>`:''}
+          ${ip?`<div style="font-size:9px;color:${col};background:${col}18;padding:1px 6px;border-radius:10px;font-weight:700">${ip.name.split('|')[0].trim().slice(0,8)}</div>`:''}
+        </div>
+        <div class="vrank-bar-row">
+          <div class="vrank-bar-bg"><div class="vrank-bar-fill" style="width:${barW}%;background:${barColor}"></div></div>
+          <div class="vrank-views">${fmt(v.views)}</div>
+        </div>
+        ${interactionBadge(v)}
+      </div>
+      ${vidEditBtn(v,month)}
+    </div>`;
+  }).join('');
+
+  container.innerHTML=summaryHtml+`<div class="chart-box"><div class="vrank-body">${rowsHtml}</div></div>`;
+}
+
+// ── 視角二：依平台分組排名 ──
+function renderVrankByPlat(allVids,month,container){
+  const usedPlats=[...new Set(allVids.map(v=>v.platform))];
+  if(!usedPlats.includes(vrankSelPlat))vrankSelPlat=usedPlats[0]||'youtube';
+
+  // Update pill highlight
+  const platFilter=document.getElementById('vrank-plat-filter');
+  if(platFilter){
+    platFilter.querySelectorAll('div[onclick]').forEach(el=>{
+      const pid=el.getAttribute('onclick').match(/'([^']+)'/)?.[1];
+      const p=PLATFORMS.find(x=>x.id===pid);
+      if(p)el.style.background=pid===vrankSelPlat?p.color+'22':'transparent';
+    });
+  }
+
+  const platVids=allVids.filter(v=>v.platform===vrankSelPlat).sort((a,b)=>b.views-a.views);
+  const p=PLATFORMS.find(x=>x.id===vrankSelPlat);
+  const maxV=platVids[0]?.views||1;
+  const total=platVids.reduce((s,v)=>s+v.views,0);
+  const avg=platVids.length?Math.round(total/platVids.length):0;
+
+  if(!platVids.length){
+    container.innerHTML=`<div style="text-align:center;padding:30px;color:var(--gray2);font-size:13px">${p?.name||vrankSelPlat} 本月尚無影片數據</div>`;
+    return;
+  }
+
+  const summaryHtml=`<div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+    <div style="font-size:13px;font-weight:700;color:${p?.color||'var(--lime)'}">📱 ${p?.name} 影片排名</div>
+    <span style="font-size:12px;color:var(--gray)">${platVids.length} 支 · 總觀看 ${fmt(total)} · 單片均 ${fmt(avg)}</span>
+  </div>`;
+
+  const rowsHtml=platVids.map((v,i)=>{
+    const ip=S.ips.find(x=>x.id===v.ipId);
+    const ipIdx=S.ips.findIndex(x=>x.id===v.ipId);
+    const col=ACCENTS[ipIdx%ACCENTS.length];
+    const isFirst=i===0,isLast=i===platVids.length-1&&platVids.length>1;
+    const rankClass=i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':isLast?'rank-last':'rank-n';
+    const barW=(v.views/maxV*100).toFixed(1);
+    const barColor=isFirst?p?.color||col:isLast?'#f87171':'rgba(255,255,255,.12)';
+    return`<div class="vrank-row">
+      <div class="vrank-rank ${rankClass}">${isLast?'▼':i+1}</div>
+      <div class="vrank-bar-wrap" style="flex:1">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">
+          <div class="vrank-title" title="${v.title.replace(/"/g,'&quot;')}">${v.title}</div>
+          ${ip?`<div style="font-size:9px;color:${col};background:${col}18;padding:1px 6px;border-radius:10px;font-weight:700">${ip.name.split('|')[0].trim().slice(0,8)}</div>`:''}
+        </div>
+        <div class="vrank-bar-row">
+          <div class="vrank-bar-bg"><div class="vrank-bar-fill" style="width:${barW}%;background:${barColor}"></div></div>
+          <div class="vrank-views">${fmt(v.views)}</div>
+        </div>
+        ${interactionBadge(v)}
+      </div>
+      ${vidEditBtn(v,month)}
+    </div>`;
+  }).join('');
+
+  container.innerHTML=summaryHtml+`<div class="chart-box"><div class="vrank-body">${rowsHtml}</div></div>`;
+}
+
+// ── 視角三：依 IP 分組排名 ──
+function renderVrankByIP(allVids,month,container){
+  // Global avg across all IPs (all platforms)
+  const globalAvg=allVids.length?Math.round(allVids.reduce((s,v)=>s+v.views,0)/allVids.length):0;
+
+  const cardsHtml=S.ips.map((ip,ipIdx)=>{
+    const ipVids=allVids.filter(v=>v.ipId===ip.id).sort((a,b)=>b.views-a.views);
+    if(!ipVids.length)return'';
+    const col=ACCENTS[ipIdx%ACCENTS.length];
+    const maxV=ipVids[0]?.views||1;
+    const total=ipVids.reduce((s,v)=>s+v.views,0);
+    const avg=Math.round(total/ipVids.length);
+    const aboveAvg=ipVids.filter(v=>v.views>=globalAvg).length;
+
+    const rowsHtml=ipVids.map((v,i)=>{
+      const p=PLATFORMS.find(x=>x.id===v.platform);
+      const isFirst=i===0,isLast=i===ipVids.length-1&&ipVids.length>1;
+      const rankClass=i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':isLast?'rank-last':'rank-n';
+      const barW=(v.views/maxV*100).toFixed(1);
+      const barColor=isFirst?col:isLast?'#f87171':'rgba(255,255,255,.12)';
+      const vsAvgColor=v.views>=globalAvg?'#4ade80':'#f87171';
+      const vsAvgLabel=globalAvg>0?`<span style="font-size:9px;color:${vsAvgColor}">${v.views>=globalAvg?'↑':'↓'} 均</span>`:'';
+      return`<div class="vrank-row">
+        <div class="vrank-rank ${rankClass}">${isLast?'▼':i+1}</div>
+        <div class="vrank-bar-wrap" style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">
+            <div class="vrank-title" title="${v.title.replace(/"/g,'&quot;')}">${v.title}</div>
+            ${p?`<div class="vrank-plat-badge" style="background:${p.color}22;color:${p.color}">${p.name}</div>`:''}
+            ${vsAvgLabel}
+          </div>
+          <div class="vrank-bar-row">
+            <div class="vrank-bar-bg"><div class="vrank-bar-fill" style="width:${barW}%;background:${barColor}"></div></div>
+            <div class="vrank-views">${fmt(v.views)}</div>
+          </div>
+          ${interactionBadge(v)}
+        </div>
+        ${vidEditBtn(v,month)}
+      </div>`;
+    }).join('');
+
+    const statsHtml=`<div style="display:flex;gap:16px;flex-wrap:wrap;padding:10px 16px;background:rgba(188,207,54,.04);border-top:1px solid rgba(188,207,54,.07);font-size:11px">
+      <span style="color:var(--gray)">共 <strong style="color:var(--white)">${ipVids.length}</strong> 支</span>
+      <span style="color:var(--gray)">單片均 <strong style="color:${col}">${fmt(avg)}</strong></span>
+      <span style="color:var(--gray)">超全平台均 <strong style="color:#4ade80">${aboveAvg}</strong> 支</span>
+      <span style="color:var(--gray)">🏆 最高 <strong style="color:var(--lime)">${fmt(ipVids[0].views)}</strong> <span style="opacity:.6;font-size:10px">${ipVids[0].title.slice(0,16)}…</span></span>
+      ${ipVids.length>1?`<span style="color:var(--gray)">📉 最低 <strong style="color:var(--red)">${fmt(ipVids[ipVids.length-1].views)}</strong></span>`:''}
+    </div>`;
+
+    return`<div class="vrank-card" style="border-left:3px solid ${col};margin-bottom:12px">
+      <div class="vrank-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        <div>
+          <div class="vrank-ip-name">${ip.name}</div>
+          <div class="vrank-meta">${month} · ${ipVids.length} 支 · 均 ${fmt(avg)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:${col}">${fmt(total)}</span>
+          <span style="color:var(--gray2)">▾</span>
+        </div>
+      </div>
+      <div><div class="vrank-body">${rowsHtml}</div>${statsHtml}</div>
+    </div>`;
+  }).join('');
+
+  // Global avg badge
+  const globalBadge=`<div style="margin-bottom:12px;padding:10px 14px;background:rgba(188,207,54,.06);border:1px solid rgba(188,207,54,.15);border-radius:3px;font-size:12px;color:var(--gray)">
+    全平台影片平均觀看數：<strong style="color:var(--lime);font-family:'Barlow Condensed',sans-serif;font-size:18px">${fmt(globalAvg)}</strong>
+    <span style="margin-left:8px;opacity:.6">↑ 綠色超過均值 · ↓ 紅色低於均值</span>
+  </div>`;
+
+  container.innerHTML=globalBadge+(cardsHtml||`<div style="text-align:center;padding:30px;color:var(--gray2);font-size:13px">尚無影片數據</div>`);
+}
+
+// Manual add modal (fallback)
+function openAddVideoModal(month,preIpId,editId){
+  const ex=document.getElementById('add-video-modal-overlay');if(ex)ex.remove();
+  const ipOpts=S.ips.map(ip=>`<option value="${ip.id}" ${ip.id===preIpId?'selected':''}>${ip.name}</option>`).join('');
+  const platOpts=PLATFORMS.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  // Pre-fill if editing
+  const editVid=editId?loadVideos().find(v=>v.id===editId):null;
+  const ov=document.createElement('div');
+  ov.id='add-video-modal-overlay';ov.className='modal-overlay open';
+  ov.innerHTML=`<div class="modal" style="max-width:480px">
+    <button class="modal-close" onclick="document.getElementById('add-video-modal-overlay').remove()">✕</button>
+    <div class="modal-title">${editVid?'編輯影片數據':'手動新增影片'}</div>
+    <div class="modal-sub">${month}</div>
+    <div class="frow"><label>代操 IP</label><select class="fi" id="av-ip">${ipOpts}</select></div>
+    <div class="frow"><label>平台</label><select class="fi" id="av-plat">${platOpts}</select></div>
+    <div class="frow"><label>影片標題</label><input class="fi" type="text" id="av-title" value="${editVid?editVid.title.replace(/"/g,'&quot;'):''}" placeholder="影片標題或說明"/></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="frow"><label>觀看數 *</label><input class="fi" type="number" id="av-views" value="${editVid?editVid.views:''}" placeholder="必填" min="0"/></div>
+      <div class="frow"><label>按讚數</label><input class="fi" type="number" id="av-likes" value="${editVid?.likes??''}" placeholder="選填" min="0"/></div>
+      <div class="frow"><label>留言數</label><input class="fi" type="number" id="av-comments" value="${editVid?.comments??''}" placeholder="選填" min="0"/></div>
+      <div class="frow"><label>分享數</label><input class="fi" type="number" id="av-shares" value="${editVid?.shares??''}" placeholder="選填" min="0"/></div>
+      <div class="frow"><label>轉發數</label><input class="fi" type="number" id="av-reposts" value="${editVid?.reposts??''}" placeholder="選填" min="0"/></div>
+      <div class="frow"><label>發布日期</label><input class="fi" type="date" id="av-pubdate" value="${editVid?.publishDate||''}" placeholder="選填"/></div>
+    </div>
+    <div class="err-msg" id="av-err"></div>
+    <button class="btn-add" style="width:100%" onclick="submitAddVideo('${month}','${editId||''}')">✓ ${editVid?'儲存更新':'新增影片'}</button>
+  </div>`;
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  document.body.appendChild(ov);
+  if(editVid){
+    document.getElementById('av-ip').value=editVid.ipId;
+    document.getElementById('av-plat').value=editVid.platform;
+  }
+}
+async function submitAddVideo(month,editId){
+  const ipId=document.getElementById('av-ip').value;
+  const platform=document.getElementById('av-plat').value;
+  const title=document.getElementById('av-title').value.trim();
+  const views=parseInt(document.getElementById('av-views').value,10);
+  const likes=document.getElementById('av-likes').value.trim();
+  const comments=document.getElementById('av-comments').value.trim();
+  const shares=document.getElementById('av-shares').value.trim();
+  const reposts=document.getElementById('av-reposts').value.trim();
+  const publishDate=document.getElementById('av-pubdate').value||null;
+  const errEl=document.getElementById('av-err');
+  if(!title){errEl.textContent='請填寫標題';return;}
+  if(isNaN(views)||views<0){errEl.textContent='請填寫有效觀看數';return;}
+  const entry={
+    id:editId||videoId(ipId,platform,month,title),
+    ipId,platform,month,title,views,
+    likes:likes?parseInt(likes,10):null,
+    comments:comments?parseInt(comments,10):null,
+    shares:shares?parseInt(shares,10):null,
+    reposts:reposts?parseInt(reposts,10):null,
+    publishDate,
+  };
+  const vids=loadVideos().filter(v=>v.id!==entry.id);
+  localStorage.setItem('wm_videos_cache',JSON.stringify([...vids,entry]));
+  await upsertVideos([entry]);
+  document.getElementById('add-video-modal-overlay').remove();
+  renderVideoRankings();
+  if(document.getElementById('tab-ipanalysis')?.classList.contains('active'))renderIPAnalysis();
+  toast('✓ 已儲存');
+}
+async function deleteVideo(id){
+  if(!confirm('確定刪除？'))return;
+  await deleteVideoFromDB(id);
+  renderVideoRankings();toast('已刪除');
+}
+// ══════════════════════════════════════════════════
+//  IP 分析頁籤
+// ══════════════════════════════════════════════════
+let ipaSelIP=null;
+let ipaVidChart=null;
+let ipaTrendChart=null;
+
+function renderIPAnalysis(){
+  if(!S.ips.length)return;
+  if(!ipaSelIP||!S.ips.find(x=>x.id===ipaSelIP))ipaSelIP=S.ips[0].id;
+
+  // IP selector pills
+  const pillsEl=document.getElementById('ipa-ip-pills');
+  if(pillsEl){
+    pillsEl.innerHTML=S.ips.map((ip,idx)=>{
+      const col=ACCENTS[idx%ACCENTS.length];
+      const active=ip.id===ipaSelIP;
+      return`<div onclick="ipaSelIP='${ip.id}';renderIPAnalysis()" style="cursor:pointer;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;border:1.5px solid ${col};color:${active?'#082946':col};background:${active?col:'transparent'};transition:all .14s">${ip.name.split('|')[0].trim()}</div>`;
+    }).join('');
+  }
+
+  const ip=S.ips.find(x=>x.id===ipaSelIP);
+  if(!ip)return;
+  const ipIdx=S.ips.findIndex(x=>x.id===ipaSelIP);
+  const col=ACCENTS[ipIdx%ACCENTS.length];
+
+  // All videos for this IP
+  const allVids=loadVideos().filter(v=>v.ipId===ipaSelIP);
+  allVids.sort((a,b)=>(a.publishDate||a.month+'-01').localeCompare(b.publishDate||b.month+'-01'));
+  const totalVids=allVids.length;
+  const firstVid=allVids[0];
+  const firstDate=firstVid?(firstVid.publishDate||firstVid.month+'-01'):null;
+  const cycles=getIPCycles(ipaSelIP);
+  const curCycle=cycles[cycles.length-1];
+
+  // Build month options
+  const vidMonths=[...new Set(allVids.map(v=>v.month))].sort().reverse();
+  const curMonth=new Date().toISOString().slice(0,7);
+  if(!vidMonths.length)vidMonths.push(curMonth);
+
+  const chartMonthSel=document.getElementById('ipa-chart-month');
+  const tableMonthSel=document.getElementById('ipa-table-month');
+  [chartMonthSel,tableMonthSel].forEach(sel=>{
+    if(!sel)return;
+    const prev=sel.value;
+    sel.innerHTML=vidMonths.map(m=>`<option value="${m}">${m}</option>`).join('');
+    if(prev&&vidMonths.includes(prev))sel.value=prev;
+  });
+
+  const selectedMonth=chartMonthSel?.value||vidMonths[0];
+
+  // IP info card
+  const infoEl=document.getElementById('ipa-info-card');
+  if(infoEl){
+    const totalViews=allVids.reduce((s,v)=>s+v.views,0);
+    const avgViews=totalVids?Math.round(totalViews/totalVids):0;
+    const platforms=[...new Set(allVids.map(v=>v.platform))];
+    infoEl.innerHTML=`
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:14px">
+        <div><div class="stat-label">累積發布</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:${col}">${totalVids} <span style="font-size:14px;color:var(--gray)">支</span></div></div>
+        <div><div class="stat-label">開始發布</div><div style="font-size:14px;font-weight:700;color:var(--white)">${firstDate?firstDate.slice(0,7):'—'}</div></div>
+        <div><div class="stat-label">累積觀看</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:${col}">${fmt(totalViews)}</div></div>
+        <div><div class="stat-label">單片平均</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:${col}">${fmt(avgViews)}</div></div>
+        <div><div class="stat-label">當前週期</div><div style="font-size:14px;font-weight:700;color:var(--white)">第 ${curCycle?curCycle.cycleNum:'—'} 期 <span style="font-size:11px;color:var(--gray)">${curCycle?curCycle.vids.length+'/24 支':''}</span></div></div>
+        <div><div class="stat-label">活躍平台</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${platforms.map(pid=>{const p=PLATFORMS.find(x=>x.id===pid);return p?`<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:${p.color}22;color:${p.color}">${p.name}</span>`:''}).join('')}</div></div>
+      </div>`;
+  }
+
+  // Chart 1: 單月影片排名曲線
+  const monthVids=allVids.filter(v=>v.month===selectedMonth).sort((a,b)=>b.views-a.views);
+  if(ipaVidChart){ipaVidChart.destroy();ipaVidChart=null;}
+  const ctx1=document.getElementById('ipa-vid-chart');
+  if(ctx1&&monthVids.length>0){
+    ipaVidChart=new Chart(ctx1.getContext('2d'),{
+      type:'bar',
+      data:{
+        labels:monthVids.map((_,i)=>`#${i+1}`),
+        datasets:[{
+          label:'觀看數',
+          data:monthVids.map(v=>v.views),
+          backgroundColor:monthVids.map((_,i)=>i===0?col:col+'66'),
+          borderRadius:3,
+        }]
+      },
+      options:{responsive:true,
+        plugins:{
+          legend:{display:false},
+          tooltip:{backgroundColor:'rgba(4,25,41,.96)',borderColor:'rgba(188,207,54,.3)',borderWidth:1,
+            titleColor:'#BCCF36',bodyColor:'#f0f4f8',
+            callbacks:{
+              title:items=>{const v=monthVids[items[0].dataIndex];return v?v.title.slice(0,30):'';},
+              label:c=>' '+Number(c.raw).toLocaleString()
+            }
+          }
+        },
+        scales:{
+          x:{ticks:{color:'#4a6378',font:{size:9}},grid:{display:false},border:{display:false}},
+          y:{ticks:{color:'#4a6378',font:{size:10},callback:v=>fmt(v)},grid:{color:'rgba(188,207,54,.05)'},border:{display:false}}
+        }
+      }
+    });
+  } else if(ctx1){
+    const ctx=ctx1.getContext('2d');ctx.clearRect(0,0,ctx1.width,ctx1.height);
+  }
+
+  // Chart 2: 本月 vs 上月流量趨勢
+  const lastMonthDate=new Date();lastMonthDate.setMonth(lastMonthDate.getMonth()-1);
+  const lastMonth=lastMonthDate.toISOString().slice(0,7);
+  function getDailyData(month){
+    const days=[];
+    const d=new Date(month+'-01');
+    const end=new Date(month+'-01');end.setMonth(end.getMonth()+1);
+    while(d<end){
+      const ds=d.toISOString().slice(0,10);
+      const v=S.data.filter(x=>x.ipId===ipaSelIP&&x.date===ds).reduce((s,x)=>s+x.views,0);
+      days.push({date:ds.slice(8),views:v});
+      d.setDate(d.getDate()+1);
+    }
+    return days;
+  }
+  const curData=getDailyData(curMonth);
+  const prevData=getDailyData(lastMonth);
+  const maxLen=Math.max(curData.length,prevData.length);
+  const labels=Array.from({length:maxLen},(_,i)=>String(i+1).padStart(2,'0'));
+
+  if(ipaTrendChart){ipaTrendChart.destroy();ipaTrendChart=null;}
+  const ctx2=document.getElementById('ipa-trend-chart');
+  if(ctx2){
+    ipaTrendChart=new Chart(ctx2.getContext('2d'),{
+      type:'line',
+      data:{
+        labels,
+        datasets:[
+          {label:`${curMonth} 本月`,data:curData.map(d=>d.views),borderColor:col,backgroundColor:col+'22',fill:true,tension:.35,pointRadius:0,borderWidth:2},
+          {label:`${lastMonth} 上月`,data:prevData.map(d=>d.views),borderColor:'rgba(255,255,255,.3)',backgroundColor:'rgba(255,255,255,.04)',fill:true,tension:.35,pointRadius:0,borderWidth:1.5,borderDash:[4,3]},
+        ]
+      },
+      options:{responsive:true,interaction:{mode:'index',intersect:false},
+        plugins:{legend:{labels:{color:'#8fa5b8',font:{size:11},boxWidth:11}},
+          tooltip:{backgroundColor:'rgba(4,25,41,.96)',borderColor:'rgba(188,207,54,.3)',borderWidth:1,
+            titleColor:'#BCCF36',bodyColor:'#f0f4f8',
+            callbacks:{label:c=>' '+c.dataset.label+': '+Number(c.raw).toLocaleString()}}},
+        scales:{
+          x:{ticks:{color:'#4a6378',font:{size:9}},grid:{color:'rgba(188,207,54,.04)'},border:{display:false}},
+          y:{ticks:{color:'#4a6378',font:{size:10},callback:v=>fmt(v)},grid:{color:'rgba(188,207,54,.05)'},border:{display:false}}
+        }
+      }
+    });
+  }
+
+  renderIPATable();
+}
+
+function renderIPATable(){
+  const tableMonthSel=document.getElementById('ipa-table-month');
+  const month=tableMonthSel?.value||new Date().toISOString().slice(0,7);
+  const vids=loadVideos().filter(v=>v.ipId===ipaSelIP&&v.month===month).sort((a,b)=>b.views-a.views);
+  const wrap=document.getElementById('ipa-table-wrap');
+  if(!wrap)return;
+  if(!vids.length){wrap.innerHTML=`<div style="text-align:center;padding:20px;color:var(--gray2);font-size:13px">${month} 尚無影片數據</div>`;return;}
+  const ipIdx=S.ips.findIndex(x=>x.id===ipaSelIP);
+  const col=ACCENTS[ipIdx%ACCENTS.length];
+  wrap.innerHTML=`<div class="tbl-wrap"><table class="dtbl">
+    <thead><tr>
+      <th style="width:36px">#</th>
+      <th>影片標題</th>
+      <th>平台</th>
+      <th>觀看</th>
+      <th>按讚</th>
+      <th>留言</th>
+      <th>分享</th>
+      <th>轉發</th>
+      <th>發布日</th>
+      ${can('editor')?'<th></th>':''}
+    </tr></thead>
+    <tbody>${vids.map((v,i)=>{
+      const p=PLATFORMS.find(x=>x.id===v.platform);
+      const editBtn=can('editor')?`<td><button onclick="openAddVideoModal('${month}','${v.ipId}','${v.id}')" style="background:transparent;border:1px solid rgba(188,207,54,.2);color:var(--lime);font-size:10px;cursor:pointer;padding:2px 6px;border-radius:2px">✏</button></td>`:'';
+      return`<tr>
+        <td style="color:${i<3?col:'var(--gray2)'};font-weight:700">${i+1}</td>
+        <td style="color:var(--white);font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v.title}">${v.title}</td>
+        <td>${p?`<span style="color:${p.color};font-size:11px;font-weight:700">${p.name}</span>`:v.platform}</td>
+        <td style="font-family:'Barlow Condensed',sans-serif;font-size:15px;color:${col};font-weight:700">${Number(v.views).toLocaleString()}</td>
+        <td style="color:var(--gray)">${v.likes!=null?Number(v.likes).toLocaleString():'—'}</td>
+        <td style="color:var(--gray)">${v.comments!=null?Number(v.comments).toLocaleString():'—'}</td>
+        <td style="color:var(--gray)">${v.shares!=null?Number(v.shares).toLocaleString():'—'}</td>
+        <td style="color:var(--gray)">${v.reposts!=null?Number(v.reposts).toLocaleString():'—'}</td>
+        <td style="color:var(--gray2);font-size:11px">${v.publishDate||'—'}</td>
+        ${editBtn}
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
+function renderEntryTable(){
+  const sorted=[...S.data].sort((a,b)=>b.date.localeCompare(a.date));
+  const countEl=document.getElementById('data-count');
+  if(countEl)countEl.textContent=sorted.length;
+  document.getElementById('entry-tbody').innerHTML=sorted.slice(0,300).map((d,i)=>{
+    const ip=S.ips.find(x=>x.id===d.ipId);
+    const p=PLATFORMS.find(x=>x.id===d.platform);
+    return`<tr>
+      <td>${ip?ip.name:d.ipId}</td>
+      <td style="color:${p?p.color:'var(--gray)'}">${p?p.name:d.platform}</td>
+      <td>${d.date}</td>
+      <td style="font-family:'Barlow Condensed',sans-serif;color:var(--white);font-size:14px">${Number(d.views).toLocaleString()}</td>
+      <td><button class="btn-del" onclick="delEntry(${i})">刪除</button></td>
+    </tr>`;
+  }).join('');
+}
+async function delEntry(i){
+  const sorted=[...S.data].sort((a,b)=>b.date.localeCompare(a.date));
+  const t=sorted[i];
+  if(USE_SUPABASE){
+    const{error}=await sb.from('metrics').delete()
+      .eq('ip_id',t.ipId).eq('platform',t.platform).eq('date',t.date);
+    if(error){toast('✕ 刪除失敗',true);return;}
+    await loadMetricsFromDB();
+  } else {
+    S.data=S.data.filter(d=>!(d.ipId===t.ipId&&d.platform===t.platform&&d.date===t.date&&d.views===t.views));
+    saveData();
+  }
+  renderEntryTable();toast('已刪除');
+}
+async function clearAllData(){
+  if(!confirm('確定清除所有數據？此操作無法還原。'))return;
+  if(USE_SUPABASE){
+    const{error}=await sb.from('metrics').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    if(error){toast('✕ 清除失敗',true);return;}
+  }
+  S.data=[];if(!USE_SUPABASE)saveData();
+  renderEntryTable();toast('已清除所有數據');
+}
+
+// ══════════════════════════════════════════════════
+//  IP MANAGEMENT
+// ══════════════════════════════════════════════════
+let editPlatforms=[];
+function renderIPMgmt(){
+  const ok=can('editor');
+  document.getElementById('ipmgmt-access-denied').style.display=ok?'none':'flex';
+  document.getElementById('ipmgmt-content').style.display=ok?'block':'none';
+  if(!ok)return;
+
+  document.getElementById('ip-count').textContent=S.ips.length;
+  document.getElementById('ip-plat-checks').innerHTML=PLATFORMS.map(p=>`
+    <div class="plat-ck ${editPlatforms.includes(p.id)?'on':''}" id="pc-${p.id}"
+      style="border-color:${p.color}44;color:${p.color}" onclick="togglePlatCk('${p.id}','${p.color}')">
+      ${p.name}</div>`).join('');
+
+  document.getElementById('ip-list-tbody').innerHTML=S.ips.map(ip=>`
+    <tr>
+      <td style="font-weight:600;color:var(--white)">${ip.name}</td>
+      <td>${ip.platforms.map(pid=>{const p=PLATFORMS.find(x=>x.id===pid);return p?`<span style="color:${p.color};font-size:9px;font-weight:700;margin-right:3px">${p.name}</span>`:''}).join('')}</td>
+      <td>
+        <button class="btn-edit" onclick="editIP('${ip.id}')">編輯</button>
+        <button class="btn-del" onclick="deleteIP('${ip.id}')">刪除</button>
+      </td>
+    </tr>`).join('');
+}
+function togglePlatCk(pid,color){
+  const el=document.getElementById('pc-'+pid);
+  if(editPlatforms.includes(pid)){editPlatforms=editPlatforms.filter(x=>x!==pid);el.classList.remove('on');el.style.background='';}
+  else{editPlatforms.push(pid);el.classList.add('on');el.style.background=color+'22';}
+}
+async function saveIP(){
+  const name=document.getElementById('ip-name-input').value.trim();
+  if(!name){toast('⚠ 請填寫 IP 名稱',true);return;}
+  const editId=document.getElementById('edit-ip-id').value;
+  if(USE_SUPABASE){
+    if(editId){
+      const{error}=await sb.from('ips').update({name,platforms:editPlatforms}).eq('id',editId);
+      if(error){toast('✕ 更新失敗',true);return;}
+    } else {
+      const{error}=await sb.from('ips').insert({name,platforms:editPlatforms,created_by:S.session.uid});
+      if(error){toast('✕ 新增失敗',true);return;}
+    }
+    await loadIPsFromDB();
+  } else {
+    if(editId){const ip=S.ips.find(x=>x.id===editId);if(ip){ip.name=name;ip.platforms=[...editPlatforms];}}
+    else S.ips.push({id:uid(),name,platforms:[...editPlatforms]});
+    saveIPs();
+  }
+  S.selIPs=S.ips.map(x=>x.id);
+  cancelEditIP();renderIPMgmt();renderSidebar();
+  toast(editId?'✓ IP 已更新':'✓ IP 已新增');
+}
+function editIP(id){
+  const ip=S.ips.find(x=>x.id===id);if(!ip)return;
+  document.getElementById('edit-ip-id').value=id;
+  document.getElementById('ip-name-input').value=ip.name;
+  document.getElementById('ip-form-title').textContent='編輯 IP';
+  document.getElementById('cancel-edit-btn').style.display='inline-block';
+  editPlatforms=[...ip.platforms];
+  PLATFORMS.forEach(p=>{
+    const el=document.getElementById('pc-'+p.id);if(!el)return;
+    if(editPlatforms.includes(p.id)){el.classList.add('on');el.style.background=p.color+'22';}
+    else{el.classList.remove('on');el.style.background='';}
+  });
+}
+function cancelEditIP(){
+  document.getElementById('edit-ip-id').value='';
+  document.getElementById('ip-name-input').value='';
+  document.getElementById('ip-form-title').textContent='新增代操 IP';
+  document.getElementById('cancel-edit-btn').style.display='none';
+  editPlatforms=[];
+}
+async function deleteIP(id){
+  if(!confirm('確定刪除此 IP？相關數據不會被刪除。'))return;
+  if(USE_SUPABASE){
+    const{error}=await sb.from('ips').delete().eq('id',id);
+    if(error){toast('✕ 刪除失敗',true);return;}
+    await loadIPsFromDB();
+  } else {
+    S.ips=S.ips.filter(x=>x.id!==id);
+    saveIPs();
+  }
+  S.selIPs=S.selIPs.filter(x=>x!==id);
+  renderIPMgmt();renderSidebar();toast('已刪除 IP');
+}
+
+// ══════════════════════════════════════════════════
+//  USER MANAGEMENT
+// ══════════════════════════════════════════════════
+function renderUsersTab(){
+  const ok=can('admin');
+  document.getElementById('users-access-denied').style.display=ok?'none':'flex';
+  document.getElementById('users-content').style.display=ok?'block':'none';
+  if(!ok)return;
+
+  const nonSuper=S.users.filter(u=>u.email!==SUPERADMIN);
+  document.getElementById('user-count').textContent=nonSuper.length;
+
+  document.getElementById('user-list-tbody').innerHTML=nonSuper.map(u=>`
+    <tr>
+      <td style="color:var(--white)">${u.email}</td>
+      <td>
+        ${can('superadmin')||S.session.email!==u.email?`
+        <select class="perm-select" onchange="changeUserRole('${u.email}',this.value)">
+          <option value="viewer"  ${u.role==='viewer' ?'selected':''}>檢視者</option>
+          <option value="editor"  ${u.role==='editor' ?'selected':''}>編輯者</option>
+          <option value="admin"   ${u.role==='admin'  ?'selected':''}>管理者</option>
+        </select>`:
+        `<span class="role-badge ${ROLE_CLASS[u.role]}">${ROLE_LABEL[u.role]}</span>`}
+      </td>
+      <td>${u.email!==S.session.email?`<button class="btn-del" onclick="deleteUser('${u.email}')">移除</button>`:'<span style="font-size:10px;color:var(--gray2)">（自己）</span>'}</td>
+    </tr>`).join('');
+}
+async function addUser(){
+  const email=document.getElementById('new-user-email').value.trim().toLowerCase();
+  const pw=document.getElementById('new-user-pw').value;
+  const role=document.getElementById('new-user-role').value;
+  if(!email||!pw){toast('⚠ 請填寫信箱與密碼',true);return;}
+  if(pw.length<6){toast('⚠ 密碼至少需要 6 個字元',true);return;}
+
+  if(USE_SUPABASE){
+    // Supabase: use admin API invite (requires service_role key for full automation)
+    // With anon key, we use signUp instead
+    const{data,error}=await sb.auth.signUp({email,password:pw});
+    if(error){toast('✕ 新增失敗：'+error.message,true);return;}
+    if(data.user){
+      await sb.from('user_profiles').upsert({id:data.user.id,email,role});
+    }
+    // Reload users list
+    const{data:profiles}=await sb.from('user_profiles').select('*').order('created_at');
+    S.users=(profiles||[]);
+  } else {
+    if(S.users.find(u=>u.email===email)){toast('⚠ 此信箱已存在',true);return;}
+    S.users.push({email,pwHash:hashPW(pw),role});
+    saveUsers();
+  }
+  document.getElementById('new-user-email').value='';
+  document.getElementById('new-user-pw').value='';
+  renderUsersTab();toast('✓ 成員已新增');
+}
+async function changeUserRole(email,role){
+  if(USE_SUPABASE){
+    const{error}=await sb.from('user_profiles').update({role}).eq('email',email);
+    if(error){toast('✕ 更新失敗',true);return;}
+    const u=S.users.find(x=>x.email===email);if(u)u.role=role;
+  } else {
+    const u=S.users.find(x=>x.email===email);
+    if(u&&u.email!==SUPERADMIN){u.role=role;saveUsers();}
+  }
+  toast('✓ 權限已更新');
+}
+async function deleteUser(email){
+  if(email===SUPERADMIN)return;
+  if(!confirm(`確定移除 ${email}？`))return;
+  if(USE_SUPABASE){
+    await sb.from('user_profiles').delete().eq('email',email);
+    S.users=S.users.filter(u=>u.email!==email);
+  } else {
+    S.users=S.users.filter(u=>u.email!==email);
+    saveUsers();
+  }
+  renderUsersTab();toast('已移除成員');
+}
+
+// ══════════════════════════════════════════════════
+//  PROFILE / CHANGE PW
+// ══════════════════════════════════════════════════
+function openProfileModal(){
+  document.getElementById('profile-modal-sub').textContent=`${S.session.email} · ${ROLE_LABEL[S.session.role]}`;
+  ['pm-cur-pw','pm-new-pw','pm-cf-pw'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pm-err').textContent='';
+  openModal('profile-modal');
+}
+async function changeMyPW(){
+  const cur=document.getElementById('pm-cur-pw').value;
+  const nw=document.getElementById('pm-new-pw').value;
+  const cf=document.getElementById('pm-cf-pw').value;
+  const errEl=document.getElementById('pm-err');
+  if(nw.length<6){errEl.textContent='新密碼至少需要 6 個字元';return;}
+  if(nw!==cf){errEl.textContent='兩次密碼不一致';return;}
+  if(USE_SUPABASE){
+    const{error}=await sb.auth.updateUser({password:nw});
+    if(error){errEl.textContent='更新失敗：'+error.message;return;}
+  } else {
+    const u=S.users.find(x=>x.email===S.session.email);
+    if(!u||u.pwHash!==hashPW(cur)){errEl.textContent='目前密碼錯誤';return;}
+    u.pwHash=hashPW(nw);saveUsers();
+  }
+  closeModal('profile-modal');
+  toast('✓ 密碼已更新');
+}
+
+// Close modal on overlay click
+document.getElementById('profile-modal').addEventListener('click',function(e){
+  if(e.target===this)closeModal('profile-modal');
+});
+
+// ══════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════
+(async()=>{
+  await loadAll();
+  // Show mode indicator in login hint area
+  if(!USE_SUPABASE){
+    const hint=document.createElement('div');
+    hint.style.cssText='margin-top:12px;padding:8px 12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:3px;font-size:11px;color:#fbbf24;line-height:1.6;text-align:center';
+    hint.innerHTML='⚠ 本機模式（數據僅存本機）<br><span style="opacity:.7">如需多人共用，請設定 Supabase</span>';
+    document.querySelector('.login-card').appendChild(hint);
+  }
+  if(S.session){
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    initApp();
+  }
+})();
+</script>
+</body>
+</html>
