@@ -1770,31 +1770,49 @@ async function addEntry(){
 function parseCSVText(text){
   // Normalise line endings, strip BOM
   text=text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-  const rows=[];
   // Detect delimiter: tab > semicolon > comma
   const sample=text.slice(0,500);
   const delim=sample.includes('\t')?'\t':sample.includes(';')?';':',';
+  const rows=[];
 
-  text.split('\n').forEach(line=>{
-    line=line.trim();
-    if(!line)return;
-    // Full-width comma normalise
-    line=line.replace(/，/g,',');
-    if(delim===','){
-      // Respect quoted fields
-      const cols=[];let cur='',inQ=false;
-      for(let i=0;i<line.length;i++){
-        const c=line[i];
-        if(c==='"'){inQ=!inQ;}
-        else if(c===','&&!inQ){cols.push(cur.trim());cur='';}
-        else cur+=c;
-      }
-      cols.push(cur.trim());
-      rows.push(cols);
-    } else {
+  if(delim!==','){
+    text.split('\n').forEach(line=>{
+      line=line.trim();if(!line)return;
       rows.push(line.split(delim).map(c=>c.replace(/^"|"$/g,'').trim()));
+    });
+    return rows;
+  }
+
+  // RFC 4180 compliant CSV parser — handles newlines inside quoted fields
+  let i=0;const n=text.length;
+  let safetyLimit=0;
+  while(i<n&&safetyLimit++<500000){
+    const cols=[];
+    let rowLimit=0;
+    while(i<n&&rowLimit++<10000){
+      let cell='';
+      if(text[i]==='"'){
+        i++; // skip opening quote
+        while(i<n){
+          if(text[i]==='"'){
+            if(i+1<n&&text[i+1]==='"'){cell+='"';i+=2;}
+            else{i++;break;}
+          } else {cell+=text[i++];}
+        }
+        cell=cell.trim();
+        // skip any trailing whitespace before comma/newline
+        while(i<n&&text[i]===' ')i++;
+      } else {
+        while(i<n&&text[i]!==','&&text[i]!=='\n'){cell+=text[i++];}
+        cell=cell.replace(/，/g,',').trim();
+      }
+      cols.push(cell);
+      if(i<n&&text[i]===','){i++;}
+      else break;
     }
-  });
+    if(i<n&&text[i]==='\n')i++;
+    if(cols.length>0&&!(cols.length===1&&cols[0]===''))rows.push(cols);
+  }
   return rows;
 }
 
